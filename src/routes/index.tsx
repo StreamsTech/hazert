@@ -9,27 +9,25 @@ export const Route = createFileRoute('/')({
 
 const WMS_LAYERS = [
   {
-    id: 'flood-prediction',
-    name: 'NOAA Flood Prediction',
+    id: 'raster_data_1',
+    name: 'Raster Data 1',
     url: 'http://202.4.127.189:5459/geoserver/wms',
-    layers: 'flood-app:NOAA_Pred_Sts_Prj',
+    layers: 'flood-app:NorflokDEM10m_Prj1',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    attribution: 'IMIS Gazipur GeoServer',
     zIndex: 502,
   },
   {
-    id: 'gis-places',
-    name: 'GIS Places',
-    url: 'http://13.250.205.178:8080/geoserver/wms',
-    layers: 'imis_gazipur:gis_places',
+    id: 'raster_data_2',
+    name: 'Raster Data 2',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:NorflokDEM10m_Prj2',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    attribution: 'IMIS Gazipur GeoServer',
     zIndex: 501,
-  },
+  }
 ] as const
 
 function LayerController({
@@ -97,10 +95,9 @@ function MapComponent() {
   useEffect(() => {
     import('leaflet/dist/leaflet.css')
   }, [])
-
-  // Default center: Dhaka, Bangladesh (appropriate for flood monitoring)
-  const center: [number, number] = [23.8103, 90.4125]
-  const zoom = 10
+  // Default center: Norfolk/Moyock area, Virginia (matches GeoServer data location)
+  const center: [number, number] = [36.8443205, -76.2820786]
+  const zoom = 15
 
   return (
     <div className="h-full w-full relative">
