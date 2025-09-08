@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
+import { MapContainer, TileLayer, WMSTileLayer } from 'react-leaflet'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -73,8 +74,7 @@ function HomePage() {
 }
 
 function MapComponent() {
-  // Import Leaflet components inside this client-only component
-  const { MapContainer, TileLayer, WMSTileLayer } = require('react-leaflet')
+  // Leaflet components are now imported at the top of the file
   
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>(
     WMS_LAYERS.reduce(
