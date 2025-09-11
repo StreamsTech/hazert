@@ -208,22 +208,15 @@ function MapComponent() {
     {/* Charts Section - Lower Half */}
     <div className="flex-1 min-h-0 bg-gray-50 p-4">
         {selectedStationId ? (
-          <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Historical/Observed Data Chart - Left */}
-            <TideChart
-              data={tideData?.data}
-              type="historical"
-              title="Historical / Observed Data"
-              loading={isTideLoading}
-            />
-            
-            {/* Predicted/Forecast Data Chart - Right */}
-            <TideChart
-              data={tideData?.data}
-              type="predicted"
-              title="Predicted / Forecast Data"
-              loading={isTideLoading}
-            />
+          <div className="h-full flex items-center justify-center p-4">
+            {/* Single Combined Tide Chart */}
+            <div className="w-full max-w-6xl">
+              <TideChart
+                data={tideData?.data}
+                title={`Water Level Data - ${selectedStationName}`}
+                loading={isTideLoading}
+              />
+            </div>
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">

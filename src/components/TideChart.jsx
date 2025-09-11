@@ -1,22 +1,55 @@
 import { useMemo } from 'react'
 import Chart from 'react-apexcharts'
 
-export function TideChart({ data, type, title, loading }) {
+export function TideChart({ data, title, loading }) {
   const chartData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return { series: [], categories: [] }
+    if (!data || !Array.isArray(data)) return { series: [] }
     
-    const filteredData = data.filter(item => item.type === type)
+    // Sort all data by timestamp first
+    const sortedData = [...data].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
     
-    const series = [{
-      name: `${type === 'historical' ? 'Observed' : 'Predicted'} Water Level`,
-      data: filteredData.map(item => ({
+    // Split data based on type attribute
+    const historicalData = []
+    const predictedData = []
+    let transitionPoint = null
+    
+    sortedData.forEach((item) => {
+      const point = {
         x: new Date(item.timestamp).getTime(),
         y: item.elevation
-      }))
-    }]
+      }
+      
+      if (item.type === 'historical') {
+        historicalData.push(point)
+        transitionPoint = point // Keep track of last historical point
+      } else if (item.type === 'predicted') {
+        // Add transition point to predicted series for smooth connection
+        if (transitionPoint && predictedData.length === 0) {
+          predictedData.push(transitionPoint)
+        }
+        predictedData.push(point)
+      }
+    })
+    
+    // Create series array
+    const series = []
+    
+    if (historicalData.length > 0) {
+      series.push({
+        name: 'Historical Data',
+        data: historicalData
+      })
+    }
+    
+    if (predictedData.length > 0) {
+      series.push({
+        name: 'Predicted Data', 
+        data: predictedData
+      })
+    }
     
     return { series }
-  }, [data, type])
+  }, [data])
 
   const options = {
     chart: {
@@ -40,10 +73,17 @@ export function TideChart({ data, type, title, loading }) {
         }
       }
     },
-    colors: [type === 'historical' ? '#3B82F6' : '#8B5CF6'], // Blue for historical, Purple for forecast
+    colors: ['#3B82F6', '#8B5CF6'], // Blue for historical, Purple for predicted
     stroke: {
-      curve: 'smooth',
-      width: 2
+      curve: 'monotoneCubic', // Smooth curves for better continuity
+      width: 3,
+      lineCap: 'round'
+    },
+    markers: {
+      size: 0, // Hide markers for clean continuous line
+      hover: {
+        size: 6
+      }
     },
     xaxis: {
       type: 'datetime',
@@ -63,12 +103,28 @@ export function TideChart({ data, type, title, loading }) {
       show: true,
       borderColor: '#e5e7eb'
     },
+    legend: {
+      show: true,
+      position: 'top',
+      horizontalAlign: 'center',
+      markers: {
+        width: 12,
+        height: 12,
+        strokeWidth: 0,
+        radius: 6
+      }
+    },
     tooltip: {
+      shared: true,
+      intersect: false,
       x: {
         format: 'MMM dd, yyyy HH:mm'
       },
       y: {
-        formatter: (value) => `${value.toFixed(2)} ft`
+        formatter: (value, { seriesIndex }) => {
+          const type = seriesIndex === 0 ? 'Historical' : 'Predicted'
+          return `${value.toFixed(2)} ft (${type})`
+        }
       }
     },
     title: {
