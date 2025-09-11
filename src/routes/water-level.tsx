@@ -74,7 +74,7 @@ function HomePage() {
   }
   return (
     <div className="h-screen w-full">
-      {import.meta.env.DEV && <DebugMSW />}
+      {/* {import.meta.env.DEV && <DebugMSW />} */}
       <ClientOnly fallback={
         <div className="h-screen w-full flex items-center justify-center">
           <div className="text-lg">Loading map...</div>
@@ -133,7 +133,7 @@ function MapComponent() {
 
   // Default center: Norfolk/Moyock area, Virginia (matches GeoServer data location)
   const center: [number, number] = [36.8443205, -76.2820786]
-  const zoom = 10
+  const zoom = 13
 
   return (
     <div className="h-full w-full flex flex-col">
@@ -141,7 +141,7 @@ function MapComponent() {
       <div className="h-2/3 w-full flex relative">
 
 
-      <div className="w-100 border-r border-gray-200 bg-white overflow-y-auto">
+      <div className="w-100 h-full border-r border-gray-200 bg-white overflow-y-auto custom-scrollbar">
       <TideMonitoringSiteCategories />
     </div>
 

@@ -268,7 +268,7 @@ const TideMonitoringSiteCategories: React.FC<TideMonitoringSiteCategoriesProps> 
   };
 
   return (
-    <div className="w-80 bg-white border border-gray-200 rounded-lg shadow-lg">
+    <div className="w-80 h-full bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-gray-200 p-4">
         <div className="flex items-center space-x-2">
@@ -279,7 +279,7 @@ const TideMonitoringSiteCategories: React.FC<TideMonitoringSiteCategoriesProps> 
       </div>
 
       {/* Categories */}
-      <div className="max-h-96 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {categories.map((category) => {
           const isExpanded = expandedCategories[category.id];
           
@@ -337,7 +337,7 @@ const TideMonitoringSiteCategories: React.FC<TideMonitoringSiteCategoriesProps> 
       </div>
 
       {/* Footer */}
-      <div className="bg-gray-50 border-t border-gray-200 p-3">
+      <div className="bg-gray-50 border-t border-gray-200 p-3 flex-shrink-0">
         <div className="flex space-x-2 mb-2">
           <button className="flex-1 bg-blue-500 text-white text-xs py-2 px-3 rounded hover:bg-blue-600 transition-colors">
             Apply Filters
