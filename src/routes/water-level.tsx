@@ -7,6 +7,7 @@ import { DebugMSW } from '~/components/DebugMSW'
 import { useStations } from '~/hooks/useStations'
 import L from 'leaflet'
 import { TideChart } from '~/components/TideChart'
+import TideMonitoringSiteCategories from '~/components/ui/TideMonitoringSiteCategories'
 export const Route = createFileRoute('/water-level')({
   component: HomePage,
 })
@@ -136,64 +137,78 @@ function MapComponent() {
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="h-2/3 w-full relative">
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        className="h-full w-full"
-        zoomControl={true}
-        whenReady={() => setIsMapReady(true)} 
-      >
-        {/* Google Maps Base Layer */}
-        <TileLayer
-          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-          attribution="© Google Maps"
-          maxZoom={20}
-        />
+      {/* Charts Section - Lower Half */}
+      <div className="h-2/3 w-full flex relative">
 
-        {/* WMS Layers */}
-        {WMS_LAYERS.map((layer) => 
-           (
-            <WMSTileLayer
-              key={layer.id}
-              url={layer.url}
-              layers={layer.layers}
-              format={layer.format}
-              transparent={layer.transparent}
-              version={layer.version}
-            />
-          )
-        )}
-            {isMapReady && stationsData?.features?.map((station) => (
-          <Marker
-            key={station.properties.id}
-            position={[
-              station.geometry.coordinates[1],
-              station.geometry.coordinates[0]
-            ]}
-            icon={blueIcon || undefined}
-            eventHandlers={{
-              click: () => handleStationClick(station.properties.id, station.properties.name)
-            }}
-          >
-            <Popup>
-              <div className="text-sm">
-                <h3 className="font-semibold">{station.properties.name}</h3>
-                <p className="text-gray-600">ID: {station.properties.id}</p>
-                <p className="text-gray-600">Status: {station.properties.status}</p>
-                <button 
-                  onClick={() =>handleStationClick(station.properties.id, station.properties.name)
 
-                  }
-                  className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                >
-                  View Tide Data
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      <div className="w-100 border-r border-gray-200 bg-white overflow-y-auto">
+      <TideMonitoringSiteCategories />
+    </div>
+
+
+
+    <div className="flex-1 relative">
+      
+    <MapContainer
+          center={center}
+          zoom={zoom}
+          className="h-full w-full"
+          zoomControl={true}
+          whenReady={() => setIsMapReady(true)} 
+        >
+          {/* Google Maps Base Layer */}
+          <TileLayer
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            attribution="© Google Maps"
+            maxZoom={20}
+          />
+
+          {/* WMS Layers */}
+          {WMS_LAYERS.map((layer) => 
+            (
+              <WMSTileLayer
+                key={layer.id}
+                url={layer.url}
+                layers={layer.layers}
+                format={layer.format}
+                transparent={layer.transparent}
+                version={layer.version}
+              />
+            )
+          )}
+              {isMapReady && stationsData?.features?.map((station) => (
+            <Marker
+              key={station.properties.id}
+              position={[
+                station.geometry.coordinates[1],
+                station.geometry.coordinates[0]
+              ]}
+              icon={blueIcon || undefined}
+              eventHandlers={{
+                click: () => handleStationClick(station.properties.id, station.properties.name)
+              }}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <h3 className="font-semibold">{station.properties.name}</h3>
+                  <p className="text-gray-600">ID: {station.properties.id}</p>
+                  <p className="text-gray-600">Status: {station.properties.status}</p>
+                  <button 
+                    onClick={() =>handleStationClick(station.properties.id, station.properties.name)
+
+                    }
+                    className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                  >
+                    View Tide Data
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+    </div>
+
+
             {/* Selected Station Indicator */}
             {selectedStationId && (
         <div className="absolute bottom-4 left-4 bg-white p-3 rounded-md shadow-md z-[1000]">
@@ -202,7 +217,7 @@ function MapComponent() {
           </p>
         </div>
       )}
-    </div>
+      </div>
 
 
     {/* Charts Section - Lower Half */}

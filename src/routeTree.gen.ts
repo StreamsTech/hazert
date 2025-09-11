@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaterLevelRouteImport } from './routes/water-level'
+import { Route as TemporaryRouteImport } from './routes/temporary'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WaterLevelRoute = WaterLevelRouteImport.update({
   id: '/water-level',
   path: '/water-level',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemporaryRoute = TemporaryRouteImport.update({
+  id: '/temporary',
+  path: '/temporary',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/water-level'
+  fullPaths: '/' | '/temporary' | '/water-level'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/water-level'
-  id: '__root__' | '/' | '/water-level'
+  to: '/' | '/temporary' | '/water-level'
+  id: '__root__' | '/' | '/temporary' | '/water-level'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  TemporaryRoute: typeof TemporaryRoute
   WaterLevelRoute: typeof WaterLevelRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/water-level'
       fullPath: '/water-level'
       preLoaderRoute: typeof WaterLevelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/temporary': {
+      id: '/temporary'
+      path: '/temporary'
+      fullPath: '/temporary'
+      preLoaderRoute: typeof TemporaryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  TemporaryRoute: TemporaryRoute,
   WaterLevelRoute: WaterLevelRoute,
 }
 export const routeTree = rootRouteImport
