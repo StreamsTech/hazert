@@ -124,7 +124,6 @@ function MapComponent() {
               format={layer.format}
               transparent={layer.transparent}
               version={layer.version}
-              attribution={layer.attribution}
             />
           ) : null
         )}
