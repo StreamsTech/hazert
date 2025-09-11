@@ -5,6 +5,25 @@ import { DefaultCatchBoundary } from './components/DefaultCatchBoundary'
 import { NotFound } from './components/NotFound'
 import * as TanstackQuery from './integrations/tanstack-query/root-provider'
 
+// Enable MSW in development
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  import('./mocks/browser.js').then(async ({ worker }) => {
+    try {
+      await worker.start({
+        onUnhandledRequest: 'bypass',
+        serviceWorker: {
+          url: '/mockServiceWorker.js',
+        },
+      })
+      console.log('🚀 MSW enabled for development')
+    } catch (error) {
+      console.error('Failed to start MSW:', error)
+    }
+  }).catch(error => {
+    console.error('Failed to import MSW:', error)
+  })
+}
+
 export function createRouter() {
   const rqContext = TanstackQuery.getContext()
   const router = createTanStackRouter({
