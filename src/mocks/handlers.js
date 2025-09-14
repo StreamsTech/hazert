@@ -81,5 +81,150 @@ export const handlers = [
   // Simulate occasional errors
   http.get('/api/stations/ERROR001/tides', () => {
     return new HttpResponse(null, { status: 500 });
+  }),
+
+  // Get map layers for comparison
+  http.get('/api/map-layers', () => {
+    const mapLayers = [
+      {
+        id: 'openstreetmap',
+        name: 'OpenStreetMap',
+        description: 'Standard OpenStreetMap tiles',
+        type: 'raster',
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        minZoom: 1,
+        opacity: 1.0,
+        metadata: {
+          source: 'OpenStreetMap Foundation',
+          category: 'base-map',
+          tags: ['street', 'roads', 'general']
+        }
+      },
+      {
+        id: 'satellite',
+        name: 'Satellite Imagery',
+        description: 'High-resolution satellite imagery',
+        type: 'raster',
+        url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        attribution: '© Google Satellite',
+        maxZoom: 20,
+        minZoom: 1,
+        opacity: 1.0,
+        metadata: {
+          source: 'Google',
+          category: 'satellite',
+          tags: ['satellite', 'imagery', 'aerial']
+        }
+      },
+      {
+        id: 'terrain',
+        name: 'Terrain Map',
+        description: 'Topographic terrain visualization',
+        type: 'raster',
+        url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+        attribution: '© Google Terrain',
+        maxZoom: 18,
+        minZoom: 1,
+        opacity: 1.0,
+        metadata: {
+          source: 'Google',
+          category: 'terrain',
+          tags: ['topography', 'elevation', 'terrain']
+        }
+      },
+      {
+        id: 'norfolk-dem-1',
+        name: 'Norfolk DEM Layer 1',
+        description: 'Digital Elevation Model - Dataset 1',
+        type: 'raster',
+        url: 'http://202.4.127.189:5459/geoserver/wms',
+        layers: 'flood-app:NorflokDEM10m_Prj1',
+        format: 'image/png',
+        transparent: true,
+        version: '1.3.0',
+        attribution: '© Norfolk GeoServer',
+        maxZoom: 18,
+        minZoom: 8,
+        opacity: 0.8,
+        bounds: [[36.7, -76.5], [37.0, -76.0]],
+        metadata: {
+          source: 'Norfolk Municipal',
+          category: 'elevation',
+          tags: ['dem', 'elevation', 'norfolk', 'flooding']
+        }
+      },
+      {
+        id: 'norfolk-dem-2',
+        name: 'Norfolk DEM Layer 2', 
+        description: 'Digital Elevation Model - Dataset 2',
+        type: 'raster',
+        url: 'http://202.4.127.189:5459/geoserver/wms',
+        layers: 'flood-app:NorflokDEM10m_Prj2',
+        format: 'image/png',
+        transparent: true,
+        version: '1.3.0',
+        attribution: '© Norfolk GeoServer',
+        maxZoom: 18,
+        minZoom: 8,
+        opacity: 0.8,
+        bounds: [[36.7, -76.5], [37.0, -76.0]],
+        metadata: {
+          source: 'Norfolk Municipal',
+          category: 'elevation',
+          tags: ['dem', 'elevation', 'norfolk', 'flooding']
+        }
+      }
+    ];
+
+    return HttpResponse.json({
+      layers: mapLayers,
+      success: true,
+      message: 'Map layers retrieved successfully'
+    });
+  }),
+
+  // Get specific comparison data
+  http.get('/api/map-layers/compare', () => {
+    // Simulate network delay
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(HttpResponse.json({
+          leftLayer: {
+            id: 'norfolk-dem-1',
+            name: 'Norfolk DEM Layer 1',
+            description: 'Digital Elevation Model - Dataset 1',
+            type: 'raster',
+            url: 'http://202.4.127.189:5459/geoserver/wms',
+            layers: 'flood-app:NorflokDEM10m_Prj1',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: '© Norfolk GeoServer - Dataset 1',
+            maxZoom: 18,
+            minZoom: 8,
+            opacity: 1.0
+          },
+          rightLayer: {
+            id: 'norfolk-dem-2',
+            name: 'Norfolk DEM Layer 2',
+            description: 'Digital Elevation Model - Dataset 2',
+            type: 'raster',
+            url: 'http://202.4.127.189:5459/geoserver/wms',
+            layers: 'flood-app:NorflokDEM10m_Prj2',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: '© Norfolk GeoServer - Dataset 2',
+            maxZoom: 18,
+            minZoom: 8,
+            opacity: 1.0
+          },
+          center: [36.8443205, -76.2820786], // Norfolk area center
+          zoom: 12
+        }));
+      }, 500 + Math.random() * 800); // 500-1300ms delay
+    });
   })
 ];
