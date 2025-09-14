@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaterLevelRouteImport } from './routes/water-level'
 import { Route as TemporaryRouteImport } from './routes/temporary'
+import { Route as CompareMapRouteImport } from './routes/compare-map'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WaterLevelRoute = WaterLevelRouteImport.update({
@@ -23,6 +24,11 @@ const TemporaryRoute = TemporaryRouteImport.update({
   path: '/temporary',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompareMapRoute = CompareMapRouteImport.update({
+  id: '/compare-map',
+  path: '/compare-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,30 +37,34 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/compare-map': typeof CompareMapRoute
   '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/compare-map': typeof CompareMapRoute
   '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/compare-map': typeof CompareMapRoute
   '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/temporary' | '/water-level'
+  fullPaths: '/' | '/compare-map' | '/temporary' | '/water-level'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/temporary' | '/water-level'
-  id: '__root__' | '/' | '/temporary' | '/water-level'
+  to: '/' | '/compare-map' | '/temporary' | '/water-level'
+  id: '__root__' | '/' | '/compare-map' | '/temporary' | '/water-level'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CompareMapRoute: typeof CompareMapRoute
   TemporaryRoute: typeof TemporaryRoute
   WaterLevelRoute: typeof WaterLevelRoute
 }
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TemporaryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/compare-map': {
+      id: '/compare-map'
+      path: '/compare-map'
+      fullPath: '/compare-map'
+      preLoaderRoute: typeof CompareMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CompareMapRoute: CompareMapRoute,
   TemporaryRoute: TemporaryRoute,
   WaterLevelRoute: WaterLevelRoute,
 }
