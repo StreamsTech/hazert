@@ -24,13 +24,21 @@ export function useCompareMapData() {
     queryFn: async () => {
       const response = await fetch('/api/map-layers/compare')
       if (!response.ok) {
-        throw new Error('Failed to fetch comparison map data')
+        if (response.status === 404) {
+          throw new Error('MSW service worker not ready - please refresh the page')
+        }
+        throw new Error(`Failed to fetch comparison map data (${response.status})`)
       }
       return response.json()
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    retry: 2,
+    staleTime: 5 * 60 * 1000, // Increased to 5 minutes
+    gcTime: 10 * 60 * 1000, // Increased to 10 minutes
+    retry: (failureCount, error) => {
+      // Don't retry 404s from MSW issues
+      if (error?.message?.includes('MSW service worker')) return false
+      return failureCount < 2
+    },
+    retryDelay: 2000, // 2 second delay between retries
   })
 }
 
