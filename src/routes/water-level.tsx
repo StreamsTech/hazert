@@ -12,26 +12,41 @@ export const Route = createFileRoute('/water-level')({
   component: HomePage,
 })
 
-const createBlueIcon = () => {
+const createCircularMarkerIcon = (value: number) => {
   try {
     if (typeof window !== 'undefined') {
-      return new L.Icon({
-        iconUrl:
-          'data:image/svg+xml;base64,' +
-          btoa(`
-            <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
-              <path fill="#3B82F6" stroke="#1E40AF" stroke-width="2" 
-                    d="M12.5 0C5.6 0 0 5.6 0 12.5c0 12.5 12.5 28.5 12.5 28.5S25 25 25 12.5C25 5.6 19.4 0 12.5 0z"/>
-              <circle fill="white" cx="12.5" cy="12.5" r="6"/>
-            </svg>
-          `),
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
+      // Format value to handle decimals nicely
+      const displayValue = value.toString()
+
+      return new L.DivIcon({
+        html: `
+          <div style="
+            width: 36px;
+            height: 36px;
+            background-color: #00b4d8;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          ">
+            ${displayValue}
+          </div>
+        `,
+        className: 'custom-circular-marker',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -18],
       })
     }
   } catch (error) {
-    console.warn('Failed to create custom icon:', error)
+    console.warn('Failed to create custom circular icon:', error)
   }
   return null
 }
@@ -102,7 +117,6 @@ function MapComponent() {
 
 
   const { data: stationsData, isLoading, error } = useStations()
-  const [blueIcon, setBlueIcon] = useState(null)
   const [isMapReady, setIsMapReady] = useState(false)
   const mapRef = useRef(null)
   if (stationsData?.features) {
@@ -112,22 +126,27 @@ function MapComponent() {
   // Load Leaflet CSS on client side
   useEffect(() => {
     import('leaflet/dist/leaflet.css')
-  }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-  
-    const icon = createBlueIcon()
-    if (icon) {
-      setBlueIcon(icon)
+    // Add custom CSS for circular markers
+    const style = document.createElement('style')
+    style.textContent = `
+      .custom-circular-marker {
+        background: transparent !important;
+        border: none !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      document.head.removeChild(style)
     }
   }, [])
+
 
     // Cleanup on unmount
     useEffect(() => {
       return () => {
         setIsMapReady(false)
-        setBlueIcon(null)
       }
     }, [])
 
@@ -176,35 +195,37 @@ function MapComponent() {
               />
             )
           )}
-              {isMapReady && stationsData?.features?.map((station) => (
-            <Marker
-              key={station.properties.id}
-              position={[
-                station.geometry.coordinates[1],
-                station.geometry.coordinates[0]
-              ]}
-              icon={blueIcon || undefined}
-              eventHandlers={{
-                click: () => handleStationClick(station.properties.id, station.properties.name)
-              }}
-            >
-              <Popup>
-                <div className="text-sm">
-                  <h3 className="font-semibold">{station.properties.name}</h3>
-                  <p className="text-gray-600">ID: {station.properties.id}</p>
-                  <p className="text-gray-600">Status: {station.properties.status}</p>
-                  <button 
-                    onClick={() =>handleStationClick(station.properties.id, station.properties.name)
-
-                    }
-                    className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+              {isMapReady && stationsData?.features?.map((station) => {
+                const circularIcon = createCircularMarkerIcon(station.properties.value || 0)
+                return (
+                  <Marker
+                    key={station.properties.id}
+                    position={[
+                      station.geometry.coordinates[1],
+                      station.geometry.coordinates[0]
+                    ]}
+                    icon={circularIcon || undefined}
+                    eventHandlers={{
+                      click: () => handleStationClick(station.properties.id, station.properties.name)
+                    }}
                   >
-                    View Tide Data
-                  </button>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+                    <Popup>
+                      <div className="text-sm">
+                        <h3 className="font-semibold">{station.properties.name}</h3>
+                        <p className="text-gray-600">ID: {station.properties.id}</p>
+                        <p className="text-gray-600">Status: {station.properties.status}</p>
+                        <p className="text-gray-600">Value: {station.properties.value || 0}</p>
+                        <button
+                          onClick={() => handleStationClick(station.properties.id, station.properties.name)}
+                          className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                        >
+                          View Tide Data
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )
+              })}
         </MapContainer>
     </div>
 

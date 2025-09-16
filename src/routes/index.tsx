@@ -97,7 +97,7 @@ function MapComponent() {
   }, [])
   // Default center: Norfolk/Moyock area, Virginia (matches GeoServer data location)
   const center: [number, number] = [36.8443205, -76.2820786]
-  const zoom = 15
+  const zoom = 12
 
   return (
     <div className="h-full w-full relative">
@@ -109,10 +109,9 @@ function MapComponent() {
       >
         {/* Google Maps Base Layer */}
         <TileLayer
-          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-          attribution="© Google Maps"
-          maxZoom={20}
-        />
+  url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+  attribution="© Google Maps"
+/>
 
         {/* WMS Layers */}
         {WMS_LAYERS.map((layer) => 
