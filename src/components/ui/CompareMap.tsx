@@ -163,8 +163,40 @@ const LayerSwitcher: React.FC<LayerSwitcherProps> = ({ selectedLayer, onLayerCha
   </div>
 )
 
+const createLeftLayers = () =>{
+  return L.tileLayer.wms('http://202.4.127.189:5459/geoserver/wms',
+      {
+        layers: 'flood-app:NorflokDEM10m_Prj1',
+        format: 'image/png',
+        transparent: true,
+        version:  '1.3.0',
+        attribution: '',
+        maxZoom: 26,
+        minZoom:  1,
+        opacity: 1.0,
+        zIndex: 502,
+      }
+  )
+}
+
+const createRightLayers = () =>{
+  return L.tileLayer.wms('http://202.4.127.189:5459/geoserver/wms',
+      {
+        layers: 'flood-app:NorflokDEM10m_Prj2',
+        format: 'image/png',
+        transparent: true,
+        version:  '1.3.0',
+        attribution: '',
+        maxZoom: 26,
+        minZoom:  1,
+        opacity: 1.0,
+        zIndex: 502,
+      }
+  )
+}
+
 // Helper function to create layer based on type
-const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer => {
+/*const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer => {
   if (layer.layers) {
     // WMS Layer
     return L.tileLayer.wms(layer.url, {
@@ -175,7 +207,8 @@ const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer
       attribution: layer.attribution || '',
       maxZoom: layer.maxZoom || 18,
       minZoom: layer.minZoom || 1,
-      opacity: layer.opacity || 1.0
+      opacity: layer.opacity || 1.0,
+      zIndex: 502,
     })
   } else {
     // Regular tile layer
@@ -186,7 +219,7 @@ const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer
       opacity: layer.opacity || 1.0
     })
   }
-}
+}*/
 
 // Main CompareMap Component
 export const CompareMap: React.FC = () => {
@@ -209,8 +242,8 @@ export const CompareMap: React.FC = () => {
       const map = mapRef.current
 
       // Create layers
-      const leftLayer = createLeafletLayer(compareData.leftLayer, map)
-      const rightLayer = createLeafletLayer(compareData.rightLayer, map)
+      const leftLayer = createLeftLayers()
+      const rightLayer = createRightLayers()
 
       // Add layers to map
       leftLayer.addTo(map)
