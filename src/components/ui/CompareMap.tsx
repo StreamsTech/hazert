@@ -23,22 +23,22 @@ const LAYER_TYPES: Record<LayerType, LayerConfig> = {
     name: 'Default',
     icon: '🗺️',
     layers: [
-      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 0.3 }
+      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 1.0 }
     ]
   },
   satellite: {
     name: 'Satellite',
     icon: '🛰️',
     layers: [
-      { url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", opacity: 0.3 }
+      { url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", opacity: 1.0 }
     ]
   },
   terrain: {
     name: 'Terrain',
     icon: '🏔️',
     layers: [
-      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 0.3 },
-      { url: "https://mt1.google.com/vt/lyrs=t&x={x}&y={y}&z={z}", opacity: 0.15 }
+      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 0.9 },
+      { url: "https://mt1.google.com/vt/lyrs=t&x={x}&y={y}&z={z}", opacity: 0.5 }
     ]
   }
 }
