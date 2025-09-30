@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
-import { MapContainer, TileLayer, WMSTileLayer } from 'react-leaflet'
-import { Layers } from 'lucide-react'
+import { MapContainer, TileLayer, WMSTileLayer, useMapEvents } from 'react-leaflet'
+import { Layers, X } from 'lucide-react'
+import { useStationClick } from '../hooks/useMapLayers'
+import type { StationClickParams, StationClickResponse } from '../types/map'
 
 // Layer types configuration (full opacity like current index.tsx)
 type LayerType = 'default' | 'satellite' | 'terrain'
@@ -54,7 +56,7 @@ const WMS_LAYERS = [
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 502,
+    zIndex: 501,
   },
   {
     id: 'raster_data_2',
@@ -64,7 +66,17 @@ const WMS_LAYERS = [
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 501,
+    zIndex: 502,
+  },
+  {
+    id: 'raster_geo_point',
+    name: 'Raster Geo Point',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:noaa_predictions',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 503,
   }
 ] as const
 
@@ -136,6 +148,82 @@ const LayerSwitcher: React.FC<LayerSwitcherProps> = ({ selectedLayer, onLayerCha
   </div>
 )
 
+// Station Modal Component
+interface StationModalProps {
+  data: StationClickResponse
+  isVisible: boolean
+  onClose: () => void
+}
+
+const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose }) => {
+  if (!isVisible || !data || data.features.length === 0) return null
+
+  const station = data.features[0]
+  const stationName = station.properties.station_name
+  const stationId = station.properties.station_id
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden mx-4">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">{stationName}</h2>
+              <p className="text-sm text-gray-600">Station ID: {stationId}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Data Table */}
+        <div className="p-4 max-h-96 overflow-y-auto">
+          <div className="overflow-x-auto">
+            <table className="w-full border border-gray-200 rounded-lg">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {data.features.map((feature, index) => (
+                  <tr key={feature.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.time}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.v}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.v_navd}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.used_datum}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.pred_type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50">
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <span>Last Seen: {data.timeStamp}</span>
+            <span>{data.features.length} records found</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HomePage() {
   return (
     <div className="h-screen w-full">
@@ -166,11 +254,58 @@ function MapComponent() {
   // Base layer state management
   const [selectedBaseLayer, setSelectedBaseLayer] = useState<LayerType>('satellite')
 
+  // Modal and station click state
+  const [clickParams, setClickParams] = useState<StationClickParams | null>(null)
+  const [selectedStation, setSelectedStation] = useState<StationClickResponse | null>(null)
+  const [modalVisible, setModalVisible] = useState(false)
+
   const handleLayerToggle = (layerId: string) => {
     setLayerVisibility((prev) => ({
       ...prev,
       [layerId]: !prev[layerId],
     }))
+  }
+
+  // Use the station click hook
+  const { data: stationData, isLoading, error } = useStationClick(clickParams, !!clickParams)
+
+  // Handle successful station data fetch
+  useEffect(() => {
+    if (stationData && !isLoading) {
+      setSelectedStation(stationData)
+      setModalVisible(true)
+      setClickParams(null) // Reset click params
+    }
+  }, [stationData, isLoading])
+
+  // Map click event component
+  const MapClickHandler = () => {
+    useMapEvents({
+      click: (e) => {
+        // Only handle clicks if the point layer is visible
+        if (!layerVisibility['raster_geo_point']) return
+
+        const map = e.target
+        const size = map.getSize()
+        const bounds = map.getBounds()
+
+        // Convert click coordinates to pixel coordinates
+        const containerPoint = map.latLngToContainerPoint(e.latlng)
+
+        // Build GetFeatureInfo parameters
+        const params: StationClickParams = {
+          x: Math.round(containerPoint.x),
+          y: Math.round(containerPoint.y),
+          width: size.x,
+          height: size.y,
+          bbox: `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`,
+          layers: 'flood-app:noaa_predictions'
+        }
+
+        setClickParams(params)
+      }
+    })
+    return null
   }
 
   // Load Leaflet CSS on client side
@@ -201,7 +336,7 @@ function MapComponent() {
         ))}
 
         {/* WMS Layers */}
-        {WMS_LAYERS.map((layer) => 
+        {WMS_LAYERS.map((layer) =>
           layerVisibility[layer.id] ? (
             <WMSTileLayer
               key={layer.id}
@@ -215,6 +350,9 @@ function MapComponent() {
           ) : null
         )}
 
+        {/* Map Click Handler */}
+        <MapClickHandler />
+
         {/* WMS Layer Controller (top-left) */}
         <LayerController
           layerVisibility={layerVisibility}
@@ -227,6 +365,40 @@ function MapComponent() {
           onLayerChange={setSelectedBaseLayer}
         />
       </MapContainer>
+
+      {/* Station Modal */}
+      {selectedStation && (
+        <StationModal
+          data={selectedStation}
+          isVisible={modalVisible}
+          onClose={() => {
+            setModalVisible(false)
+            setSelectedStation(null)
+          }}
+        />
+      )}
+
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1500]">
+          <div className="bg-white rounded-lg shadow-lg p-4 flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-sm text-gray-700">Loading station data...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error indicator */}
+      {error && !isLoading && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1500]">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Error:</span>
+              <span className="text-sm">{error.message}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

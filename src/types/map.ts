@@ -39,3 +39,53 @@ export interface SideBySideOptions {
   thumbSize?: number
   padding?: number
 }
+
+// GeoServer GetFeatureInfo response interfaces
+export interface StationProperties {
+  station_id: string
+  station_name: string
+  time: string
+  v: number
+  v_navd: number
+  used_datum: string
+  pred_type: string
+}
+
+export interface StationGeometry {
+  type: 'Point'
+  coordinates: [number, number]
+}
+
+export interface StationFeature {
+  type: 'Feature'
+  id: string
+  geometry: StationGeometry
+  geometry_name: string
+  properties: StationProperties
+  bbox: [number, number, number, number]
+}
+
+export interface StationClickResponse {
+  type: 'FeatureCollection'
+  features: StationFeature[]
+  totalFeatures: string
+  numberReturned: number
+  timeStamp: string
+  crs: {
+    type: 'name'
+    properties: {
+      name: string
+    }
+  }
+  bbox: [number, number, number, number]
+}
+
+// Click parameters for GetFeatureInfo request
+export interface StationClickParams {
+  x: number
+  y: number
+  width: number
+  height: number
+  bbox: string
+  layers: string
+}
