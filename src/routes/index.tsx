@@ -148,7 +148,7 @@ const LayerSwitcher: React.FC<LayerSwitcherProps> = ({ selectedLayer, onLayerCha
   </div>
 )
 
-// Station Modal Component
+// Bottom Sheet Component
 interface StationModalProps {
   data: StationClickResponse
   isVisible: boolean
@@ -156,15 +156,17 @@ interface StationModalProps {
 }
 
 const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose }) => {
-  if (!isVisible || !data || data.features.length === 0) return null
+  if (!data || data.features.length === 0) return null
 
   const station = data.features[0]
   const stationName = station.properties.station_name
   const stationId = station.properties.station_id
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden mx-4">
+    <div className={`fixed bottom-0 left-0 right-0 z-[2000] h-1/2 transition-transform duration-300 ease-in-out ${
+      isVisible ? 'translate-y-0' : 'translate-y-full'
+    }`}>
+      <div className="bg-white rounded-t-2xl shadow-2xl h-full overflow-hidden w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-3">
@@ -185,7 +187,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         </div>
 
         {/* Data Table */}
-        <div className="p-4 max-h-96 overflow-y-auto">
+        <div className="p-4 overflow-y-auto" style={{ height: 'calc(100% - 140px)' }}>
           <div className="overflow-x-auto">
             <table className="w-full border border-gray-200 rounded-lg">
               <thead className="bg-gray-50">
@@ -317,7 +319,9 @@ function MapComponent() {
   const zoom = 12
 
   return (
-    <div className="h-full w-full relative">
+    <div className={`w-full relative transition-all duration-300 ${
+      modalVisible ? 'h-1/2' : 'h-full'
+    }`}>
       <MapContainer
         center={center}
         zoom={zoom}
