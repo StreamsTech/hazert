@@ -11,6 +11,7 @@
 - **Water Level Visualization**: ApexCharts-powered tide data with historical vs predicted data
 - **Station Management**: Filterable monitoring sites with categorized station types
 - **Interactive Station Points**: Click-to-query GeoServer point layers with modal data display
+- **Pen Mode**: Hover-to-query water depth/elevation data with real-time tooltip display
 
 ## 🏗️ Architecture
 
@@ -79,13 +80,16 @@ src/
 #### `src/routes/index.tsx` - Main Map Interface
 - **Purpose**: Primary flood alert map with WMS layers and base layer switching
 - **Features**:
-  - Norfolk DEM raster data overlay (`NorflokDEM10m_Prj1`, `NorflokDEM10m_Prj2`)
+  - Water surface elevation raster overlay (`rendered_noaa_wse`)
   - Interactive point layer (`noaa_predictions`) with click-to-query functionality
-  - Layer visibility controls with toggleable point layer
+  - Pen mode with hover-to-query depth data and floating tooltip
+  - Layer visibility controls with toggleable layers
   - Base layer switcher (Default/Satellite/Terrain)
   - Google Maps base layers
   - Real-time station data modal on point clicks
+  - Bottom sheet with date range controls (Day/Week/2 Week views)
 - **Location**: Norfolk/Moyock area (36.8443205, -76.2820786)
+- **Coordinate System**: EPSG:4326 (WGS84) for all WMS requests
 
 #### `src/components/ui/CompareMap.tsx` - Side-by-Side Comparison
 - **Purpose**: Advanced map comparison using leaflet-side-by-side plugin
@@ -109,29 +113,29 @@ src/
 ```javascript
 const WMS_LAYERS = [
   {
-    id: 'raster_data_1',
+    id: 'water_surface_elevation',
+    name: 'Water Surface Elevation',
     url: 'http://202.4.127.189:5459/geoserver/wms',
-    layers: 'flood-app:NorflokDEM10m_Prj1',
+    layers: 'flood-app:rendered_noaa_wse',
     format: 'image/png',
-    version: '1.3.0'
-  },
-  {
-    id: 'raster_data_2',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
-    layers: 'flood-app:NorflokDEM10m_Prj2',
-    format: 'image/png',
-    version: '1.3.0'
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 502
   },
   {
     id: 'raster_geo_point',
-    name: 'Raster Geo Point',
+    name: 'NOAA Predictions',
     url: 'http://202.4.127.189:5459/geoserver/wms',
     layers: 'flood-app:noaa_predictions',
     format: 'image/png',
-    version: '1.3.0'
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 503
   }
 ]
 ```
+
+**Note**: Previous DEM layers (`NorflokDEM10m_Prj1`, `NorflokDEM10m_Prj2`) were removed due to projection issues. The new `rendered_noaa_wse` layer uses EPSG:4326 (standard WGS84 lat/lon) for compatibility.
 
 ### Data Management
 
@@ -206,6 +210,12 @@ pnpm start
 3. **Interactive Markers**: Station data with custom circular icons
 4. **Side-by-Side Comparison**: Leaflet plugin for DEM dataset comparison
 5. **Point Layer Interaction**: Click-to-query station points with real-time data modal display
+6. **Pen Mode**: Hover-based water depth queries with:
+   - Real-time GetFeatureInfo API requests to GeoServer
+   - Floating tooltip with depth values (GRAY_INDEX property)
+   - Throttle + debounce optimization for performance
+   - Velocity-based request skipping during fast cursor movement
+   - EPSG:4326 coordinate system with degree-based BBOX calculations
 
 ### Alert Systems
 1. **Station Monitoring**: 15 Norfolk area stations with real-time values
@@ -234,8 +244,27 @@ pnpm start
 ### Interactive Point Layers
 1. **Click Handler**: Map click events capture coordinates and build GetFeatureInfo requests
 2. **GeoServer Integration**: Direct JSON API calls to Norfolk GeoServer WMS endpoints
-3. **Modal Display**: Station data displayed in responsive modal with data tables
-4. **TypeScript Support**: Full type safety for GeoServer response structures
+3. **Modal Display**: Station data displayed in responsive bottom sheet with data tables
+4. **Date Range Controls**: Day/Week/2-Week view modes with automatic date calculations
+5. **TypeScript Support**: Full type safety for GeoServer response structures
+
+### Pen Mode (Hover-to-Query)
+1. **Activation**: Toggle button in top-right corner (below layer switcher)
+2. **Coordinate System**: Uses EPSG:4326 (WGS84) for all calculations - no projection transformations needed
+3. **BBOX Calculation**:
+   - Calculates pixel size in degrees: `(bounds.getEast() - bounds.getWest()) / mapSize.x`
+   - Creates 101x101 pixel window centered on cursor
+   - Builds BBOX as `[lng±50px, lat±50px]` in decimal degrees
+4. **API Request Format**:
+   - `SRS=EPSG:4326` (not EPSG:6595)
+   - `X=50, Y=50` (center of 101x101 grid)
+   - `BBOX` in lat/lon format (e.g., `-76.036,36.802,-76.002,36.829`)
+5. **Performance Optimizations**:
+   - Abort controller for canceling previous requests
+   - Throttle: Queries every 250ms during slow movement
+   - Debounce: Final query after 400ms of inactivity
+   - Velocity detection: Skips queries during fast cursor movement (>0.5px/ms)
+6. **Response Handling**: Extracts `GRAY_INDEX` property from GeoServer response (returns null for NoData pixels)
 
 ### Extending Station Data
 1. Modify station data in `src/mocks/handlers.js`
@@ -247,4 +276,31 @@ pnpm start
 - Custom color schemes and themes
 - Interactive features and tooltips
 
-This TanStack Start application provides a solid foundation for flood monitoring and water level visualization, with extensible architecture for additional GIS features and real-time data integration. The interactive point layer system enables direct querying of GeoServer data sources with responsive modal interfaces for detailed station information display.
+## 🎨 UI Components
+
+### Pen Mode Components
+- **`PenModeToggle`**: Toggle button for enabling/disabling pen mode
+- **`PenModeTooltip`**: Floating tooltip that follows cursor with depth data
+- **Features**: Loading states, null data handling, formatted depth display (meters, 2 decimal places)
+
+### Station Modal (Bottom Sheet)
+- **Design**: Bottom sheet that slides up from bottom (50% viewport height)
+- **Header**: Station info, date range picker, view mode buttons (Day/Week/2 Week), export/table actions
+- **Date Controls**: Selectable start date with auto-calculated end date based on view mode
+- **Data Table**: Scrollable table with time, water level, NAVD, datum, and prediction type columns
+- **Footer**: Last seen timestamp and record count
+
+## 🔧 Technical Notes
+
+### Coordinate System Migration
+The application was migrated from EPSG:6595 (NAD83/Virginia Lambert) to EPSG:4326 (WGS84) for WMS requests:
+- **Removed**: proj4 dependency and coordinate transformations
+- **Simplified**: Direct degree-based calculations using Leaflet's native coordinate system
+- **Benefit**: Compatibility with standard WMS layers, reduced complexity, better performance
+
+### Known Limitations
+- **Pen Mode NoData**: GRAY_INDEX returns `null` for pixels outside water coverage areas (land, model boundaries)
+- **Layer Coverage**: `rendered_noaa_wse` has data only in specific flood model domains
+- **Best Results**: Pen mode works best over water bodies (Chesapeake Bay, rivers, coastal areas)
+
+This TanStack Start application provides a solid foundation for flood monitoring and water level visualization, with extensible architecture for additional GIS features and real-time data integration. The interactive point layer system enables direct querying of GeoServer data sources with responsive modal interfaces for detailed station information display. The pen mode feature offers real-time depth querying with optimized performance for smooth user experience.
