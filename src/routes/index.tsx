@@ -148,10 +148,10 @@ const PenModeToggle: React.FC<PenModeToggleProps> = ({ isActive, onToggle }) => 
   <div className="absolute top-20 right-4 z-[1001]">
     <button
       onClick={onToggle}
-      className={`bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 transition-all duration-200 ${
+      className={`backdrop-blur-sm rounded-lg shadow-lg p-3 transition-all duration-200 ${
         isActive
           ? 'bg-blue-500 hover:bg-blue-600 text-white'
-          : 'hover:bg-white text-gray-700'
+          : 'bg-white/95 hover:bg-white text-gray-700'
       }`}
       title={isActive ? 'Disable Pen Mode' : 'Enable Pen Mode'}
     >
