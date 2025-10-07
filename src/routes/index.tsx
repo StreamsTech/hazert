@@ -1,12 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
-import { MapContainer, TileLayer, WMSTileLayer, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup } from 'react-leaflet'
 import { Layers, X, Download, Table, Pen, LineChart } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
 import type { StationClickParams, StationClickResponse, WaterLevelPrediction } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
 import { WaterLevelChart } from '../components/WaterLevelChart'
+import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
 type LayerType = 'default' | 'satellite' | 'terrain'
@@ -162,44 +163,6 @@ const PenModeToggle: React.FC<PenModeToggleProps> = ({ isActive, onToggle }) => 
   </div>
 )
 
-// Floating Tooltip Component
-interface PenModeTooltipProps {
-  visible: boolean
-  position: { x: number; y: number }
-  depth: number | null
-  isLoading: boolean
-}
-
-const PenModeTooltip: React.FC<PenModeTooltipProps> = ({ visible, position, depth, isLoading }) => {
-  if (!visible) return null
-
-  return (
-    <div
-      className="fixed z-[1500] pointer-events-none transition-opacity duration-150"
-      style={{
-        left: `${position.x + 15}px`,
-        top: `${position.y + 15}px`,
-        opacity: visible ? 1 : 0,
-      }}
-    >
-      <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-3 py-2 min-w-[120px]">
-        <div className="text-xs font-medium text-gray-500 mb-1">Water Depth</div>
-        {isLoading ? (
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-            <span className="text-sm text-gray-600">Loading...</span>
-          </div>
-        ) : depth !== null ? (
-          <div className="text-base font-semibold text-gray-900">
-            {depth.toFixed(2)} m
-          </div>
-        ) : (
-          <div className="text-sm text-gray-400">No data</div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // Bottom Sheet Component
 interface StationModalProps {
@@ -540,16 +503,12 @@ function MapComponent() {
 
   // Pen mode state
   const [penModeActive, setPenModeActive] = useState(false)
-  const [cursorDepth, setCursorDepth] = useState<number | null>(null)
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
+  const [markerPosition, setMarkerPosition] = useState<L.LatLng | null>(null)
+  const [markerDepth, setMarkerDepth] = useState<number | null>(null)
   const [isLoadingDepth, setIsLoadingDepth] = useState(false)
-  const [tooltipVisible, setTooltipVisible] = useState(false)
 
   // Refs for pen mode
   const abortControllerRef = useRef<AbortController | null>(null)
-  const throttleTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const lastPositionRef = useRef({ x: 0, y: 0, time: 0 })
 
   const handleLayerToggle = (layerId: string) => {
     setLayerVisibility((prev) => ({
@@ -656,73 +615,45 @@ function MapComponent() {
       if (data.features && data.features.length > 0) {
         const grayIndex = data.features[0].properties?.GRAY_INDEX
         if (grayIndex !== undefined && grayIndex !== null) {
-          setCursorDepth(grayIndex)
+          setMarkerDepth(grayIndex)
         } else {
-          setCursorDepth(null)
+          setMarkerDepth(null)
         }
       } else {
-        setCursorDepth(null)
+        setMarkerDepth(null)
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error('Error fetching water depth:', error)
-        setCursorDepth(null)
+        setMarkerDepth(null)
       }
     } finally {
       setIsLoadingDepth(false)
     }
   }, [])
 
-  // Hybrid throttle + debounce handler
-  const handlePenModeMouseMove = useCallback((e: L.LeafletMouseEvent) => {
+  // Handle pen mode click
+  const handlePenModeClick = useCallback((e: L.LeafletMouseEvent) => {
     if (!penModeActive) return
+
+    console.log('🖱️ Pen mode click detected:', { lat: e.latlng.lat, lng: e.latlng.lng })
 
     const activeLayer = getActiveLayer()
     if (!activeLayer) {
-      setTooltipVisible(false)
+      console.log('⚠️ No active layer found for pen mode')
       return
     }
 
+    console.log('✅ Active layer:', activeLayer.name)
+
     const map = e.target
-    const containerPoint = map.latLngToContainerPoint(e.latlng)
 
-    // Update tooltip position
-    setTooltipPosition({ x: e.originalEvent.clientX, y: e.originalEvent.clientY })
-    setTooltipVisible(true)
+    // Set marker position
+    setMarkerPosition(e.latlng)
+    setMarkerDepth(null) // Reset depth when placing new marker
 
-    // Fast movement detection
-    const now = Date.now()
-    const dx = containerPoint.x - lastPositionRef.current.x
-    const dy = containerPoint.y - lastPositionRef.current.y
-    const dt = now - lastPositionRef.current.time
-    const velocity = Math.sqrt(dx * dx + dy * dy) / (dt || 1)
-
-    lastPositionRef.current = { x: containerPoint.x, y: containerPoint.y, time: now }
-
-    // Skip if moving too fast (>50px in 100ms = velocity > 0.5px/ms)
-    if (velocity > 0.5) {
-      // Clear throttle timer but keep debounce for final call
-      if (throttleTimerRef.current) {
-        clearTimeout(throttleTimerRef.current)
-        throttleTimerRef.current = null
-      }
-    } else {
-      // Throttle: Call every 250ms during slow movement
-      if (!throttleTimerRef.current) {
-        throttleTimerRef.current = setTimeout(() => {
-          throttleTimerRef.current = null
-          fetchWaterDepth(e.latlng, map, activeLayer)
-        }, 250)
-      }
-    }
-
-    // Debounce: Always call after 400ms of inactivity
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-    }
-    debounceTimerRef.current = setTimeout(() => {
-      fetchWaterDepth(e.latlng, map, activeLayer)
-    }, 400)
+    // Fetch water depth
+    fetchWaterDepth(e.latlng, map, activeLayer)
   }, [penModeActive, getActiveLayer, fetchWaterDepth])
 
   // Cleanup on unmount or pen mode toggle
@@ -731,16 +662,25 @@ function MapComponent() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
-      if (throttleTimerRef.current) {
-        clearTimeout(throttleTimerRef.current)
-      }
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-      }
-      setTooltipVisible(false)
-      setCursorDepth(null)
+      setMarkerPosition(null)
+      setMarkerDepth(null)
     }
   }, [penModeActive])
+
+  // Create custom pin icon
+  const [pinIconInstance, setPinIconInstance] = useState<L.Icon | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const icon = L.icon({
+        iconUrl: '/images/pin.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      })
+      setPinIconInstance(icon)
+    }
+  }, [])
 
   // Use the station click hook
   const { data: stationData, isLoading, error } = useStationClick(clickParams, !!clickParams)
@@ -758,8 +698,11 @@ function MapComponent() {
   const MapClickHandler = () => {
     useMapEvents({
       click: (e) => {
-        // Skip if pen mode is active
-        if (penModeActive) return
+        // Handle pen mode click
+        if (penModeActive) {
+          handlePenModeClick(e)
+          return
+        }
 
         // Only handle clicks if the point layer is visible
         if (!layerVisibility['raster_geo_point']) return
@@ -782,14 +725,6 @@ function MapComponent() {
         }
 
         setClickParams(params)
-      },
-      mousemove: (e) => {
-        handlePenModeMouseMove(e)
-      },
-      mouseout: () => {
-        if (penModeActive) {
-          setTooltipVisible(false)
-        }
       }
     })
     return null
@@ -860,10 +795,42 @@ function MapComponent() {
           onToggle={() => {
             setPenModeActive(!penModeActive)
             if (penModeActive) {
-              setCursorDepth(null)
+              setMarkerDepth(null)
             }
           }}
         />
+
+        {/* Pen Mode Marker */}
+        {penModeActive && markerPosition && pinIconInstance && (
+          <Marker
+            position={markerPosition}
+            icon={pinIconInstance}
+            eventHandlers={{
+              add: (e) => {
+                // Open popup when marker is added
+                e.target.openPopup()
+              }
+            }}
+          >
+            <Popup closeButton={false} autoClose={false} closeOnClick={false}>
+              <div className="text-center min-w-[100px]">
+                <div className="text-xs font-medium text-gray-500 mb-1">Water Depth</div>
+                {isLoadingDepth ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-gray-600">Loading...</span>
+                  </div>
+                ) : markerDepth !== null ? (
+                  <div className="text-base font-semibold text-gray-900">
+                    {markerDepth.toFixed(2)} m
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400">No data</div>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        )}
       </MapContainer>
 
       {/* Station Modal */}
@@ -900,13 +867,6 @@ function MapComponent() {
         </div>
       )}
 
-      {/* Pen Mode Tooltip */}
-      <PenModeTooltip
-        visible={tooltipVisible && penModeActive}
-        position={tooltipPosition}
-        depth={cursorDepth}
-        isLoading={isLoadingDepth}
-      />
     </div>
   )
 }
