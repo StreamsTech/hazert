@@ -4,8 +4,9 @@ import { ClientOnly } from '@tanstack/react-router'
 import { MapContainer, TileLayer, WMSTileLayer, useMapEvents } from 'react-leaflet'
 import { Layers, X, Download, Table, Pen } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
-import type { StationClickParams, StationClickResponse } from '../types/map'
+import type { StationClickParams, StationClickResponse, WaterLevelPrediction } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
+import { WaterLevelChart } from '../components/WaterLevelChart'
 
 // Layer types configuration (full opacity like current index.tsx)
 type LayerType = 'default' | 'satellite' | 'terrain'
@@ -220,6 +221,11 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
 
+  // Water level chart data state
+  const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
+  const [isChartLoading, setIsChartLoading] = useState(false)
+  const [chartError, setChartError] = useState<Error | null>(null)
+
   // Auto-select today's date when bottom sheet opens
   useEffect(() => {
     if (isVisible && !selectedDate) {
@@ -233,11 +239,25 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
     const fetchData = async () => {
       if (isVisible && stationId && startDate && endDate) {
         try {
+          setIsChartLoading(true)
+          setChartError(null)
           console.log('🔄 Fetching water level data:', { stationId, startDate, endDate })
           const response = await fetchStationWaterLevel(stationId, startDate, endDate)
           console.log('✅ Water level data received:', response)
+
+          // Extract predictions for the selected station
+          const stationData = response.saved_files[stationId]
+          if (stationData && stationData.predictions) {
+            setWaterLevelData(stationData.predictions)
+          } else {
+            setWaterLevelData([])
+          }
         } catch (error) {
           console.error('❌ Error fetching water level data:', error)
+          setChartError(error as Error)
+          setWaterLevelData([])
+        } finally {
+          setIsChartLoading(false)
         }
       }
     }
@@ -372,31 +392,44 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="p-4 overflow-y-auto" style={{ height: 'calc(100% - 180px)' }}>
-          <div className="overflow-x-auto">
-            <table className="w-full border border-gray-200 rounded-lg">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {data.features.map((feature, index) => (
-                  <tr key={feature.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.time}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.v}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.v_navd}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.used_datum}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{feature.properties.pred_type}</td>
+        {/* Data Body - Table and Chart */}
+        <div className="flex-1 overflow-y-auto p-4" style={{ height: 'calc(100% - 180px)' }}>
+          {/* Data Table */}
+          <div className="mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full border border-gray-200 rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {waterLevelData.map((prediction, index) => (
+                    <tr key={prediction.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.t}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.v}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.v_navd}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.used_datum}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.type}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Water Level Chart */}
+          <div className="mt-6">
+            <WaterLevelChart
+              data={waterLevelData}
+              title={`Water Level Chart - ${stationName}`}
+              loading={isChartLoading}
+              stationId={stationId}
+            />
           </div>
         </div>
 
@@ -404,7 +437,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         <div className="p-4 border-t bg-gray-50">
           <div className="flex justify-between items-center text-sm text-gray-600">
             <span>Last Seen: {data.timeStamp}</span>
-            <span>{data.features.length} records found</span>
+            <span>{waterLevelData.length} records found</span>
           </div>
         </div>
       </div>

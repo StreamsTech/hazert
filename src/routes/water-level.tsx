@@ -7,7 +7,10 @@ import { DebugMSW } from '~/components/DebugMSW'
 import { useStations } from '~/hooks/useStations'
 import L from 'leaflet'
 import { TideChart } from '~/components/TideChart'
+import { WaterLevelChart } from '~/components/WaterLevelChart'
 import TideMonitoringSiteCategories from '~/components/ui/TideMonitoringSiteCategories'
+import { fetchStationWaterLevel } from '../api/stations'
+import type { WaterLevelPrediction } from '../types/map'
 export const Route = createFileRoute('/water-level')({
   component: HomePage,
 })
@@ -104,6 +107,9 @@ function HomePage() {
 function MapComponent() {
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
   const [selectedStationName, setSelectedStationName] = useState('')
+  const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
+  const [isWaterLevelLoading, setIsWaterLevelLoading] = useState(false)
+  const [waterLevelError, setWaterLevelError] = useState<Error | null>(null)
 
   const { data: tideData, isLoading: isTideLoading, error: tideError } = useTideData(
     selectedStationId,
@@ -114,6 +120,48 @@ function MapComponent() {
     setSelectedStationId(stationId)
     setSelectedStationName(stationName)
   }
+
+  // Fetch water level data when station is selected
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!selectedStationId) return
+
+      try {
+        setIsWaterLevelLoading(true)
+        setWaterLevelError(null)
+
+        // Calculate date range (7 days before and after today)
+        const today = new Date()
+        const startDate = new Date(today)
+        startDate.setDate(today.getDate() - 7)
+        const endDate = new Date(today)
+        endDate.setDate(today.getDate() + 7)
+
+        const startDateStr = startDate.toISOString().split('T')[0]
+        const endDateStr = endDate.toISOString().split('T')[0]
+
+        console.log('🔄 Fetching water level data for station:', { selectedStationId, startDateStr, endDateStr })
+        const response = await fetchStationWaterLevel(selectedStationId, startDateStr, endDateStr)
+        console.log('✅ Water level data received:', response)
+
+        // Extract predictions for the selected station
+        const stationData = response.saved_files[selectedStationId]
+        if (stationData && stationData.predictions) {
+          setWaterLevelData(stationData.predictions)
+        } else {
+          setWaterLevelData([])
+        }
+      } catch (error) {
+        console.error('❌ Error fetching water level data:', error)
+        setWaterLevelError(error as Error)
+        setWaterLevelData([])
+      } finally {
+        setIsWaterLevelLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [selectedStationId])
 
 
   const { data: stationsData, isLoading, error } = useStations()
@@ -245,12 +293,13 @@ function MapComponent() {
     <div className="flex-1 min-h-0 bg-gray-50 p-4">
         {selectedStationId ? (
           <div className="h-full flex items-center justify-center p-4">
-            {/* Single Combined Tide Chart */}
+            {/* Water Level Chart */}
             <div className="w-full max-w-6xl">
-              <TideChart
-                data={tideData?.data}
+              <WaterLevelChart
+                data={waterLevelData}
                 title={`Water Level Data - ${selectedStationName}`}
-                loading={isTideLoading}
+                loading={isWaterLevelLoading}
+                stationId={selectedStationId}
               />
             </div>
           </div>
@@ -263,13 +312,13 @@ function MapComponent() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Station</h3>
-              <p className="text-gray-600">Click on a blue marker on the map to view tide data for that station.</p>
+              <p className="text-gray-600">Click on a blue marker on the map to view water level data for that station.</p>
             </div>
           </div>
         )}
 
         {/* Error State */}
-        {tideError && (
+        {waterLevelError && (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
               <div className="text-red-600 mb-2">
@@ -278,8 +327,8 @@ function MapComponent() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Data</h3>
-              <p className="text-gray-600">{tideError.message}</p>
-              <button 
+              <p className="text-gray-600">{waterLevelError.message}</p>
+              <button
                 onClick={() => selectedStationId && handleStationClick(selectedStationId, selectedStationName)}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
