@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
 import { MapContainer, TileLayer, WMSTileLayer, useMapEvents } from 'react-leaflet'
-import { Layers, X, Download, Table, Pen } from 'lucide-react'
+import { Layers, X, Download, Table, Pen, LineChart } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
 import type { StationClickParams, StationClickResponse, WaterLevelPrediction } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
@@ -217,7 +217,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
   // Date range state
   const [selectedDate, setSelectedDate] = useState<string>('')
-  const [viewMode, setViewMode] = useState<'day' | 'week' | '2week'>('day')
+  const [dateViewMode, setDateViewMode] = useState<'day' | 'week' | '2week'>('day')
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
 
@@ -225,6 +225,50 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [chartError, setChartError] = useState<Error | null>(null)
+
+  // View mode state (chart or table)
+  const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart')
+
+  // Download CSV handler
+  const handleDownloadCSV = () => {
+    if (waterLevelData.length === 0) {
+      alert('No data available to download')
+      return
+    }
+
+    // Create CSV header
+    const csvHeader = 'Time,Water Level (v),NAVD (v_navd),Datum,Type\n'
+
+    // Create CSV rows
+    const csvRows = waterLevelData.map(prediction => {
+      return `${prediction.t},${prediction.v},${prediction.v_navd},${prediction.used_datum},${prediction.type}`
+    }).join('\n')
+
+    // Combine header and rows
+    const csvContent = csvHeader + csvRows
+
+    // Create Blob
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+
+    // Create download link
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+
+    // Set filename with station info and date range
+    const filename = `station_${stationId}_${startDate}_to_${endDate}.csv`
+
+    link.setAttribute('href', url)
+    link.setAttribute('download', filename)
+    link.style.visibility = 'hidden'
+
+    // Trigger download
+    document.body.appendChild(link)
+    link.click()
+
+    // Cleanup
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   // Auto-select today's date when bottom sheet opens
   useEffect(() => {
@@ -277,7 +321,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
     setStartDate(selectedDate)
 
     const end = new Date(start)
-    switch (viewMode) {
+    switch (dateViewMode) {
       case 'day':
         end.setDate(end.getDate() + 1)
         break
@@ -289,7 +333,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         break
     }
     setEndDate(end.toISOString().split('T')[0])
-  }, [selectedDate, viewMode])
+  }, [selectedDate, dateViewMode])
 
   // Get today's date for max attribute
   const today = new Date().toISOString().split('T')[0]
@@ -327,9 +371,9 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
             {/* View Mode Buttons */}
             <div className="flex gap-1 border border-gray-300 rounded-md overflow-hidden">
               <button
-                onClick={() => setViewMode('day')}
+                onClick={() => setDateViewMode('day')}
                 className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === 'day'
+                  dateViewMode === 'day'
                     ? 'bg-blue-500 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -337,9 +381,9 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
                 Day
               </button>
               <button
-                onClick={() => setViewMode('week')}
+                onClick={() => setDateViewMode('week')}
                 className={`px-4 py-1.5 text-sm font-medium border-x border-gray-300 transition-colors ${
-                  viewMode === 'week'
+                  dateViewMode === 'week'
                     ? 'bg-blue-500 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -347,9 +391,9 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
                 Week
               </button>
               <button
-                onClick={() => setViewMode('2week')}
+                onClick={() => setDateViewMode('2week')}
                 className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === '2week'
+                  dateViewMode === '2week'
                     ? 'bg-blue-500 text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
@@ -377,11 +421,23 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
           {/* Right: Action Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors">
+            <button
+              onClick={handleDownloadCSV}
+              className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+              title="Download CSV"
+            >
               <Download className="w-4 h-4 text-gray-700" />
             </button>
-            <button className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors">
-              <Table className="w-4 h-4 text-gray-700" />
+            <button
+              onClick={() => setViewMode(viewMode === 'chart' ? 'table' : 'chart')}
+              className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+              title={viewMode === 'chart' ? 'Show Table View' : 'Show Chart View'}
+            >
+              {viewMode === 'chart' ? (
+                <Table className="w-4 h-4 text-gray-700" />
+              ) : (
+                <LineChart className="w-4 h-4 text-gray-700" />
+              )}
             </button>
             <button
               onClick={onClose}
@@ -394,43 +450,45 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
         {/* Data Body - Table and Chart */}
         <div className="flex-1 overflow-y-auto p-4" style={{ height: 'calc(100% - 180px)' }}>
-          {/* Data Table */}
-          <div className="mb-6">
-            <div className="overflow-x-auto">
-              <table className="w-full border border-gray-200 rounded-lg">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {waterLevelData.map((prediction, index) => (
-                    <tr key={prediction.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.t}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.v}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.v_navd}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.used_datum}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{prediction.type}</td>
+          {viewMode === 'table' ? (
+            /* Data Table */
+            <div>
+              <div className="overflow-x-auto">
+                <table className="w-full border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {waterLevelData.map((prediction, index) => (
+                      <tr key={prediction.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.t}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.v}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.v_navd}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.used_datum}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.type}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-
-          {/* Water Level Chart */}
-          <div className="mt-6">
-            <WaterLevelChart
-              data={waterLevelData}
-              title={`Water Level Chart - ${stationName}`}
-              loading={isChartLoading}
-              stationId={stationId}
-            />
-          </div>
+          ) : (
+            /* Water Level Chart */
+            <div>
+              <WaterLevelChart
+                data={waterLevelData}
+                title={`Water Level Chart - ${stationName}`}
+                loading={isChartLoading}
+                stationId={stationId}
+              />
+            </div>
+          )}
         </div>
 
         {/* Footer */}
