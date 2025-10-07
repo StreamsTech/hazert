@@ -59,7 +59,17 @@ const WMS_LAYERS = [
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 502,
+    zIndex: 501,
+  },
+  {
+    id: 'water_surface_elevation_second_phase',
+    name: 'Water Surface Elevation 2nd Phase',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:noaa_wse_second',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 501,
   },
   {
     id: 'raster_geo_point',
