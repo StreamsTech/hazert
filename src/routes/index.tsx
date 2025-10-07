@@ -7,6 +7,9 @@ import { useStationClick } from '../hooks/useMapLayers'
 import type { StationClickParams, StationClickResponse, WaterLevelPrediction } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
 import { WaterLevelChart } from '../components/WaterLevelChart'
+import { ComparisonButton } from '../components/ui/ComparisonButton'
+import { ComparisonModal } from '../components/ui/ComparisonModal'
+import { CompareMap } from '../components/ui/CompareMap'
 import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
@@ -535,6 +538,12 @@ function MapComponent() {
   const [markerDepth, setMarkerDepth] = useState<number | null>(null)
   const [isLoadingDepth, setIsLoadingDepth] = useState(false)
 
+  // Comparison mode state
+  const [comparisonMode, setComparisonMode] = useState(false)
+  const [comparisonLeftLayer, setComparisonLeftLayer] = useState<string | null>(null)
+  const [comparisonRightLayer, setComparisonRightLayer] = useState<string | null>(null)
+  const [showComparisonModal, setShowComparisonModal] = useState(false)
+
   // Refs for pen mode
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -543,6 +552,22 @@ function MapComponent() {
       ...prev,
       [layerId]: !prev[layerId],
     }))
+  }
+
+  // Handle comparison enable
+  const handleComparisonEnable = (leftLayerId: string, rightLayerId: string) => {
+    setComparisonLeftLayer(leftLayerId)
+    setComparisonRightLayer(rightLayerId)
+    setComparisonMode(true)
+    console.log('✅ Comparison mode enabled:', { leftLayerId, rightLayerId })
+  }
+
+  // Handle comparison disable
+  const handleComparisonDisable = () => {
+    setComparisonMode(false)
+    setComparisonLeftLayer(null)
+    setComparisonRightLayer(null)
+    console.log('🚫 Comparison mode disabled')
   }
 
   // Get highest z-index DEM raster layer (for pen mode depth queries)
@@ -795,96 +820,119 @@ function MapComponent() {
     <div className={`w-full relative transition-all duration-300 ${
       modalVisible ? 'h-1/2' : 'h-full'
     }`}>
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        className={`h-full w-full ${penModeActive ? 'cursor-crosshair' : ''}`}
-        zoomControl={true}
-      >
-        {/* Dynamic Base Layers */}
-        {LAYER_TYPES[selectedBaseLayer].layers.map((layer, index) => (
-          <TileLayer
-            key={`${selectedBaseLayer}-${index}`}
-            url={layer.url}
-            attribution="© Google Maps"
-            opacity={layer.opacity}
-            maxZoom={20}
-          />
-        ))}
-
-        {/* WMS Layers */}
-        {WMS_LAYERS.map((layer) =>
-          layerVisibility[layer.id] ? (
-            <WMSTileLayer
-              key={layer.id}
+      {/* Conditional Rendering: Comparison Mode vs Normal Map */}
+      {comparisonMode ? (
+        // Comparison Mode: Show CompareMap
+        <CompareMap
+          leftLayerId={comparisonLeftLayer}
+          rightLayerId={comparisonRightLayer}
+          layersConfig={WMS_LAYERS}
+          onDisable={handleComparisonDisable}
+        />
+      ) : (
+        // Normal Mode: Show MapContainer with all controls
+        <MapContainer
+          center={center}
+          zoom={zoom}
+          className={`h-full w-full ${penModeActive ? 'cursor-crosshair' : ''}`}
+          zoomControl={true}
+        >
+          {/* Dynamic Base Layers */}
+          {LAYER_TYPES[selectedBaseLayer].layers.map((layer, index) => (
+            <TileLayer
+              key={`${selectedBaseLayer}-${index}`}
               url={layer.url}
-              layers={layer.layers}
-              format={layer.format}
-              transparent={layer.transparent}
-              version={layer.version}
-              zIndex={layer.zIndex}
+              attribution="© Google Maps"
+              opacity={layer.opacity}
+              maxZoom={20}
             />
-          ) : null
-        )}
+          ))}
 
-        {/* Map Click Handler */}
-        <MapClickHandler />
+          {/* WMS Layers */}
+          {WMS_LAYERS.map((layer) =>
+            layerVisibility[layer.id] ? (
+              <WMSTileLayer
+                key={layer.id}
+                url={layer.url}
+                layers={layer.layers}
+                format={layer.format}
+                transparent={layer.transparent}
+                version={layer.version}
+                zIndex={layer.zIndex}
+              />
+            ) : null
+          )}
 
-        {/* WMS Layer Controller (top-left) */}
-        <LayerController
-          layerVisibility={layerVisibility}
-          onLayerToggle={handleLayerToggle}
-        />
+          {/* Map Click Handler */}
+          <MapClickHandler />
 
-        {/* Base Layer Switcher (bottom-right) */}
-        <LayerSwitcher
-          selectedLayer={selectedBaseLayer}
-          onLayerChange={setSelectedBaseLayer}
-        />
+          {/* WMS Layer Controller (top-left) */}
+          <LayerController
+            layerVisibility={layerVisibility}
+            onLayerToggle={handleLayerToggle}
+          />
 
-        {/* Pen Mode Toggle Button */}
-        <PenModeToggle
-          isActive={penModeActive}
-          onToggle={() => {
-            setPenModeActive(!penModeActive)
-            if (penModeActive) {
-              setMarkerDepth(null)
-            }
-          }}
-        />
+          {/* Base Layer Switcher (bottom-right) - Hidden in comparison mode */}
+          <LayerSwitcher
+            selectedLayer={selectedBaseLayer}
+            onLayerChange={setSelectedBaseLayer}
+          />
 
-        {/* Pen Mode Marker */}
-        {penModeActive && markerPosition && pinIconInstance && (
-          <Marker
-            position={markerPosition}
-            icon={pinIconInstance}
-            eventHandlers={{
-              add: (e) => {
-                // Open popup when marker is added
-                e.target.openPopup()
+          {/* Pen Mode Toggle Button */}
+          <PenModeToggle
+            isActive={penModeActive}
+            onToggle={() => {
+              setPenModeActive(!penModeActive)
+              if (penModeActive) {
+                setMarkerDepth(null)
               }
             }}
-          >
-            <Popup closeButton={false} autoClose={false} closeOnClick={false}>
-              <div className="text-center min-w-[100px]">
-                <div className="text-xs font-medium text-gray-500 mb-1">Water Depth</div>
-                {isLoadingDepth ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-sm text-gray-600">Loading...</span>
-                  </div>
-                ) : markerDepth !== null ? (
-                  <div className="text-base font-semibold text-gray-900">
-                    {markerDepth.toFixed(2)} m
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-400">No data</div>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        )}
-      </MapContainer>
+          />
+
+          {/* Comparison Button - Below Layer Controller */}
+          <ComparisonButton onClick={() => setShowComparisonModal(true)} />
+
+          {/* Pen Mode Marker */}
+          {penModeActive && markerPosition && pinIconInstance && (
+            <Marker
+              position={markerPosition}
+              icon={pinIconInstance}
+              eventHandlers={{
+                add: (e) => {
+                  // Open popup when marker is added
+                  e.target.openPopup()
+                }
+              }}
+            >
+              <Popup closeButton={false} autoClose={false} closeOnClick={false}>
+                <div className="text-center min-w-[100px]">
+                  <div className="text-xs font-medium text-gray-500 mb-1">Water Depth</div>
+                  {isLoadingDepth ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="text-sm text-gray-600">Loading...</span>
+                    </div>
+                  ) : markerDepth !== null ? (
+                    <div className="text-base font-semibold text-gray-900">
+                      {markerDepth.toFixed(2)} m
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">No data</div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+      )}
+
+      {/* Comparison Modal */}
+      <ComparisonModal
+        visible={showComparisonModal}
+        onClose={() => setShowComparisonModal(false)}
+        onEnable={handleComparisonEnable}
+        layers={WMS_LAYERS}
+      />
 
       {/* Station Modal */}
       {selectedStation && (
