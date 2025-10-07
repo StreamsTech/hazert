@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, WMSTileLayer, useMapEvents } from 'react-leafl
 import { Layers, X, Download, Table, Pen } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
 import type { StationClickParams, StationClickResponse } from '../types/map'
+import { fetchStationWaterLevel } from '../api/stations'
 
 // Layer types configuration (full opacity like current index.tsx)
 type LayerType = 'default' | 'satellite' | 'terrain'
@@ -218,6 +219,31 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   const [viewMode, setViewMode] = useState<'day' | 'week' | '2week'>('day')
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
+
+  // Auto-select today's date when bottom sheet opens
+  useEffect(() => {
+    if (isVisible && !selectedDate) {
+      const today = new Date().toISOString().split('T')[0]
+      setSelectedDate(today)
+    }
+  }, [isVisible, selectedDate])
+
+  // Fetch water level data when date range changes
+  useEffect(() => {
+    const fetchData = async () => {
+      if (isVisible && stationId && startDate && endDate) {
+        try {
+          console.log('🔄 Fetching water level data:', { stationId, startDate, endDate })
+          const response = await fetchStationWaterLevel(stationId, startDate, endDate)
+          console.log('✅ Water level data received:', response)
+        } catch (error) {
+          console.error('❌ Error fetching water level data:', error)
+        }
+      }
+    }
+
+    fetchData()
+  }, [isVisible, stationId, startDate, endDate])
 
   // Calculate date range based on selected date and view mode
   useEffect(() => {

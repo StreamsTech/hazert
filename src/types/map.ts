@@ -89,3 +89,30 @@ export interface StationClickParams {
   bbox: string
   layers: string
 }
+
+// Water Level API Response interfaces
+export interface WaterLevelPrediction {
+  id: number
+  station_id: string
+  t: string
+  v: number
+  v_navd: number
+  type: string
+  used_datum: string
+}
+
+export interface StationWaterLevelData {
+  status: string
+  count: number
+  predictions: WaterLevelPrediction[]
+}
+
+export interface WaterLevelResponse {
+  saved_files: {
+    [stationId: string]: StationWaterLevelData
+  }
+  date_range: {
+    begin_date: string
+    end_date: string
+  }
+}
