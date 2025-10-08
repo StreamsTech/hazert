@@ -6,6 +6,43 @@ import { Layers, AlertCircle, Loader2 } from 'lucide-react'
 import { useCompareMapData } from '../../hooks/useMapLayers'
 import type { MapLayer } from '../../types/map'
 
+// Layer types configuration
+type LayerType = 'default' | 'satellite' | 'terrain'
+
+interface LayerConfig {
+  name: string
+  icon: string
+  layers: Array<{
+    url: string
+    opacity: number
+  }>
+}
+
+const LAYER_TYPES: Record<LayerType, LayerConfig> = {
+  default: {
+    name: 'Default',
+    icon: '🗺️',
+    layers: [
+      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 1.0 }
+    ]
+  },
+  satellite: {
+    name: 'Satellite',
+    icon: '🛰️',
+    layers: [
+      { url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", opacity: 1.0 }
+    ]
+  },
+  terrain: {
+    name: 'Terrain',
+    icon: '🏔️',
+    layers: [
+      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 0.9 },
+      { url: "https://mt1.google.com/vt/lyrs=t&x={x}&y={y}&z={z}", opacity: 0.5 }
+    ]
+  }
+}
+
 // Legend Component
 interface MapLegendProps {
   leftLayer: MapLayer
@@ -13,7 +50,7 @@ interface MapLegendProps {
 }
 
 const MapLegend: React.FC<MapLegendProps> = ({ leftLayer, rightLayer }) => (
-  <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 z-[1000] min-w-[280px]">
+  <div className="absolute bottom-4 left-20 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 z-[1000] min-w-[280px]">
     <div className="flex items-center gap-2 mb-3">
       <Layers className="w-5 h-5 text-blue-600" />
       <h3 className="font-semibold text-gray-800">Layer Comparison</h3>
@@ -85,8 +122,81 @@ const MapError: React.FC<MapErrorProps> = ({ message, onRetry }) => (
   </div>
 )
 
+// Layer Switcher Component
+interface LayerSwitcherProps {
+  selectedLayer: LayerType
+  onLayerChange: (layer: LayerType) => void
+}
+
+const LayerSwitcher: React.FC<LayerSwitcherProps> = ({ selectedLayer, onLayerChange }) => (
+  <div className="absolute top-4 right-4 z-[1001] group">
+    {/* Layer Icon Button */}
+    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 cursor-pointer hover:bg-white transition-colors">
+      <Layers className="w-5 h-5 text-gray-700" />
+    </div>
+
+    {/* Horizontal Dropdown */}
+    <div className="absolute top-0 right-16 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ease-in-out">
+      <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 flex gap-1 min-w-max">
+        {(Object.keys(LAYER_TYPES) as LayerType[]).map((layerType) => {
+          const layer = LAYER_TYPES[layerType]
+          const isSelected = selectedLayer === layerType
+
+          return (
+            <button
+              key={layerType}
+              onClick={() => onLayerChange(layerType)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                isSelected
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              title={layer.name}
+            >
+              <span className="text-lg">{layer.icon}</span>
+              <span>{layer.name}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  </div>
+)
+
+const createLeftLayers = () =>{
+  return L.tileLayer.wms('http://202.4.127.189:5459/geoserver/wms',
+      {
+        layers: 'flood-app:NorflokDEM10m_Prj1',
+        format: 'image/png',
+        transparent: true,
+        version:  '1.3.0',
+        attribution: '',
+        maxZoom: 26,
+        minZoom:  1,
+        opacity: 1.0,
+        zIndex: 502,
+      }
+  )
+}
+
+const createRightLayers = () =>{
+  return L.tileLayer.wms('http://202.4.127.189:5459/geoserver/wms',
+      {
+        layers: 'flood-app:NorflokDEM10m_Prj2',
+        format: 'image/png',
+        transparent: true,
+        version:  '1.3.0',
+        attribution: '',
+        maxZoom: 26,
+        minZoom:  1,
+        opacity: 1.0,
+        zIndex: 502,
+      }
+  )
+}
+
 // Helper function to create layer based on type
-const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer => {
+/*const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer => {
   if (layer.layers) {
     // WMS Layer
     return L.tileLayer.wms(layer.url, {
@@ -97,7 +207,8 @@ const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer
       attribution: layer.attribution || '',
       maxZoom: layer.maxZoom || 18,
       minZoom: layer.minZoom || 1,
-      opacity: layer.opacity || 1.0
+      opacity: layer.opacity || 1.0,
+      zIndex: 502,
     })
   } else {
     // Regular tile layer
@@ -108,7 +219,7 @@ const createLeafletLayer = (layer: MapLayer, map?: L.Map): L.TileLayer | L.Layer
       opacity: layer.opacity || 1.0
     })
   }
-}
+}*/
 
 // Main CompareMap Component
 export const CompareMap: React.FC = () => {
@@ -116,6 +227,7 @@ export const CompareMap: React.FC = () => {
   const mapRef = useRef<L.Map | null>(null)
   const sideBySideRef = useRef<any>(null)
   const [isMapReady, setIsMapReady] = useState(false)
+  const [selectedLayer, setSelectedLayer] = useState<LayerType>('default')
 
   // Load Leaflet CSS
   useEffect(() => {
@@ -130,8 +242,8 @@ export const CompareMap: React.FC = () => {
       const map = mapRef.current
 
       // Create layers
-      const leftLayer = createLeafletLayer(compareData.leftLayer, map)
-      const rightLayer = createLeafletLayer(compareData.rightLayer, map)
+      const leftLayer = createLeftLayers()
+      const rightLayer = createRightLayers()
 
       // Add layers to map
       leftLayer.addTo(map)
@@ -204,13 +316,23 @@ export const CompareMap: React.FC = () => {
         }}
         whenReady={() => setIsMapReady(true)}
       >
-        {/* Base layer for context (optional) */}
-        <TileLayer
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution="� OpenStreetMap contributors"
-          opacity={0.3}
-        />
+        {/* Base layers for context based on selected layer type */}
+        {LAYER_TYPES[selectedLayer].layers.map((layer, index) => (
+          <TileLayer
+            key={`${selectedLayer}-${index}`}
+            url={layer.url}
+            attribution="© Google Maps"
+            opacity={layer.opacity}
+            maxZoom={20}
+          />
+        ))}
       </MapContainer>
+
+      {/* Layer Switcher */}
+      <LayerSwitcher
+        selectedLayer={selectedLayer}
+        onLayerChange={setSelectedLayer}
+      />
 
       {/* Legend */}
       <MapLegend

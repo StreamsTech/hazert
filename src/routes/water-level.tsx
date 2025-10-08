@@ -7,31 +7,49 @@ import { DebugMSW } from '~/components/DebugMSW'
 import { useStations } from '~/hooks/useStations'
 import L from 'leaflet'
 import { TideChart } from '~/components/TideChart'
+import { WaterLevelChart } from '~/components/WaterLevelChart'
 import TideMonitoringSiteCategories from '~/components/ui/TideMonitoringSiteCategories'
+import { fetchStationWaterLevel } from '../api/stations'
+import type { WaterLevelPrediction } from '../types/map'
 export const Route = createFileRoute('/water-level')({
   component: HomePage,
 })
 
-const createBlueIcon = () => {
+const createCircularMarkerIcon = (value: number) => {
   try {
     if (typeof window !== 'undefined') {
-      return new L.Icon({
-        iconUrl:
-          'data:image/svg+xml;base64,' +
-          btoa(`
-            <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
-              <path fill="#3B82F6" stroke="#1E40AF" stroke-width="2" 
-                    d="M12.5 0C5.6 0 0 5.6 0 12.5c0 12.5 12.5 28.5 12.5 28.5S25 25 25 12.5C25 5.6 19.4 0 12.5 0z"/>
-              <circle fill="white" cx="12.5" cy="12.5" r="6"/>
-            </svg>
-          `),
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
+      // Format value to handle decimals nicely
+      const displayValue = value.toString()
+
+      return new L.DivIcon({
+        html: `
+          <div style="
+            width: 36px;
+            height: 36px;
+            background-color: #00b4d8;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          ">
+            ${displayValue}
+          </div>
+        `,
+        className: 'custom-circular-marker',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -18],
       })
     }
   } catch (error) {
-    console.warn('Failed to create custom icon:', error)
+    console.warn('Failed to create custom circular icon:', error)
   }
   return null
 }
@@ -89,6 +107,9 @@ function HomePage() {
 function MapComponent() {
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
   const [selectedStationName, setSelectedStationName] = useState('')
+  const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
+  const [isWaterLevelLoading, setIsWaterLevelLoading] = useState(false)
+  const [waterLevelError, setWaterLevelError] = useState<Error | null>(null)
 
   const { data: tideData, isLoading: isTideLoading, error: tideError } = useTideData(
     selectedStationId,
@@ -100,9 +121,50 @@ function MapComponent() {
     setSelectedStationName(stationName)
   }
 
+  // Fetch water level data when station is selected
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!selectedStationId) return
+
+      try {
+        setIsWaterLevelLoading(true)
+        setWaterLevelError(null)
+
+        // Calculate date range (7 days before and after today)
+        const today = new Date()
+        const startDate = new Date(today)
+        startDate.setDate(today.getDate() - 7)
+        const endDate = new Date(today)
+        endDate.setDate(today.getDate() + 7)
+
+        const startDateStr = startDate.toISOString().split('T')[0]
+        const endDateStr = endDate.toISOString().split('T')[0]
+
+        console.log('🔄 Fetching water level data for station:', { selectedStationId, startDateStr, endDateStr })
+        const response = await fetchStationWaterLevel(selectedStationId, startDateStr, endDateStr)
+        console.log('✅ Water level data received:', response)
+
+        // Extract predictions for the selected station
+        const stationData = response.saved_files[selectedStationId]
+        if (stationData && stationData.predictions) {
+          setWaterLevelData(stationData.predictions)
+        } else {
+          setWaterLevelData([])
+        }
+      } catch (error) {
+        console.error('❌ Error fetching water level data:', error)
+        setWaterLevelError(error as Error)
+        setWaterLevelData([])
+      } finally {
+        setIsWaterLevelLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [selectedStationId])
+
 
   const { data: stationsData, isLoading, error } = useStations()
-  const [blueIcon, setBlueIcon] = useState(null)
   const [isMapReady, setIsMapReady] = useState(false)
   const mapRef = useRef(null)
   if (stationsData?.features) {
@@ -112,22 +174,27 @@ function MapComponent() {
   // Load Leaflet CSS on client side
   useEffect(() => {
     import('leaflet/dist/leaflet.css')
-  }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-  
-    const icon = createBlueIcon()
-    if (icon) {
-      setBlueIcon(icon)
+    // Add custom CSS for circular markers
+    const style = document.createElement('style')
+    style.textContent = `
+      .custom-circular-marker {
+        background: transparent !important;
+        border: none !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      document.head.removeChild(style)
     }
   }, [])
+
 
     // Cleanup on unmount
     useEffect(() => {
       return () => {
         setIsMapReady(false)
-        setBlueIcon(null)
       }
     }, [])
 
@@ -176,35 +243,37 @@ function MapComponent() {
               />
             )
           )}
-              {isMapReady && stationsData?.features?.map((station) => (
-            <Marker
-              key={station.properties.id}
-              position={[
-                station.geometry.coordinates[1],
-                station.geometry.coordinates[0]
-              ]}
-              icon={blueIcon || undefined}
-              eventHandlers={{
-                click: () => handleStationClick(station.properties.id, station.properties.name)
-              }}
-            >
-              <Popup>
-                <div className="text-sm">
-                  <h3 className="font-semibold">{station.properties.name}</h3>
-                  <p className="text-gray-600">ID: {station.properties.id}</p>
-                  <p className="text-gray-600">Status: {station.properties.status}</p>
-                  <button 
-                    onClick={() =>handleStationClick(station.properties.id, station.properties.name)
-
-                    }
-                    className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+              {isMapReady && stationsData?.features?.map((station) => {
+                const circularIcon = createCircularMarkerIcon(station.properties.value || 0)
+                return (
+                  <Marker
+                    key={station.properties.id}
+                    position={[
+                      station.geometry.coordinates[1],
+                      station.geometry.coordinates[0]
+                    ]}
+                    icon={circularIcon || undefined}
+                    eventHandlers={{
+                      click: () => handleStationClick(station.properties.id, station.properties.name)
+                    }}
                   >
-                    View Tide Data
-                  </button>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+                    <Popup>
+                      <div className="text-sm">
+                        <h3 className="font-semibold">{station.properties.name}</h3>
+                        <p className="text-gray-600">ID: {station.properties.id}</p>
+                        <p className="text-gray-600">Status: {station.properties.status}</p>
+                        <p className="text-gray-600">Value: {station.properties.value || 0}</p>
+                        <button
+                          onClick={() => handleStationClick(station.properties.id, station.properties.name)}
+                          className="mt-2 px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                        >
+                          View Tide Data
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )
+              })}
         </MapContainer>
     </div>
 
@@ -224,12 +293,13 @@ function MapComponent() {
     <div className="flex-1 min-h-0 bg-gray-50 p-4">
         {selectedStationId ? (
           <div className="h-full flex items-center justify-center p-4">
-            {/* Single Combined Tide Chart */}
+            {/* Water Level Chart */}
             <div className="w-full max-w-6xl">
-              <TideChart
-                data={tideData?.data}
+              <WaterLevelChart
+                data={waterLevelData}
                 title={`Water Level Data - ${selectedStationName}`}
-                loading={isTideLoading}
+                loading={isWaterLevelLoading}
+                stationId={selectedStationId}
               />
             </div>
           </div>
@@ -242,13 +312,13 @@ function MapComponent() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Station</h3>
-              <p className="text-gray-600">Click on a blue marker on the map to view tide data for that station.</p>
+              <p className="text-gray-600">Click on a blue marker on the map to view water level data for that station.</p>
             </div>
           </div>
         )}
 
         {/* Error State */}
-        {tideError && (
+        {waterLevelError && (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
               <div className="text-red-600 mb-2">
@@ -257,8 +327,8 @@ function MapComponent() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Data</h3>
-              <p className="text-gray-600">{tideError.message}</p>
-              <button 
+              <p className="text-gray-600">{waterLevelError.message}</p>
+              <button
                 onClick={() => selectedStationId && handleStationClick(selectedStationId, selectedStationName)}
                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
