@@ -93,7 +93,9 @@ export function useStationClick(clickParams: StationClickParams | null, enabled:
 
       // Check if we got any features
       if (!data.features || data.features.length === 0) {
-        throw new Error('No station data found at this location')
+        // Return a special flag instead of throwing to prevent error state
+        console.log('ℹ️ No station found at this location')
+        throw new Error('NO_STATION_FOUND')
       }
 
       return data
@@ -101,11 +103,7 @@ export function useStationClick(clickParams: StationClickParams | null, enabled:
     enabled: enabled && !!clickParams,
     staleTime: 0, // Don't cache click results
     gcTime: 1 * 60 * 1000, // Keep for 1 minute
-    retry: (failureCount, error) => {
-      // Don't retry if no features found
-      if (error?.message?.includes('No station data found')) return false
-      return failureCount < 2
-    },
-    retryDelay: 1000,
+    retry: false, // Disable retry for all errors to prevent multiple requests
+    throwOnError: false, // Don't throw errors, just return them in error state
   })
 }

@@ -304,3 +304,211 @@ The application was migrated from EPSG:6595 (NAD83/Virginia Lambert) to EPSG:432
 - **Best Results**: Pen mode works best over water bodies (Chesapeake Bay, rivers, coastal areas)
 
 This TanStack Start application provides a solid foundation for flood monitoring and water level visualization, with extensible architecture for additional GIS features and real-time data integration. The interactive point layer system enables direct querying of GeoServer data sources with responsive modal interfaces for detailed station information display. The pen mode feature offers real-time depth querying with optimized performance for smooth user experience.
+
+---
+
+## 🔄 Layer Comparison Feature (New Feature - In Development)
+
+### Overview
+A modal-based interface for comparing two WMS layers side-by-side with a draggable slider, allowing users to visually compare different flood model datasets or water surface elevation layers.
+
+### User Flow
+
+#### Step 1: Access Comparison Mode
+- **Location**: Top-right corner, below Layer Controller panel
+- **Trigger**: "Compare Layers" button with compare icon (🔀)
+- **Action**: Opens comparison selection modal
+
+#### Step 2: Layer Selection Modal
+**Modal Structure**:
+```
+┌────────────────────────────────────────┐
+│  Select Layers to Compare       [X]   │
+├────────────────────────────────────────┤
+│  Left Layer:                           │
+│  ○ Water Surface Elevation            │
+│  ○ Water Surface Elevation 2nd Phase  │
+│  ○ NOAA Predictions                   │
+│                                        │
+│  Right Layer:                          │
+│  ○ Water Surface Elevation            │
+│  ○ Water Surface Elevation 2nd Phase  │
+│  ○ NOAA Predictions                   │
+│                                        │
+│  [Enable Comparison] (disabled)       │
+└────────────────────────────────────────┘
+```
+
+**Selection Rules**:
+- User must select one layer for left side
+- User must select one layer for right side
+- Cannot select the same layer for both sides
+- Enable button activates only when both layers selected
+- Right side layer radio buttons disable the option already selected on left
+
+#### Step 3: Enable Comparison
+- **Action**: Click "Enable Comparison" button
+- **Result**:
+  - Modal closes
+  - `comparisonMode` state set to `true`
+  - LayerSwitcher component hidden
+  - Map switches to split view
+
+#### Step 4: Comparison View
+**Split Map Interface**:
+```
+┌──────────────────────┬──────────────────────┐
+│  Left Layer          │  Right Layer         │
+│  (Water Surface 1)   │  (Water Surface 2)   │
+│                      ║                      │
+│                      ║                      │
+│         MAP          ║         MAP          │
+│                      ║                      │
+│                      ║                      │
+│                    <═╬═>  ← Draggable       │
+│                      ║                      │
+└──────────────────────┴──────────────────────┘
+```
+
+**Features in Comparison Mode**:
+- Vertical draggable slider to adjust split position
+- Both maps synchronized (zoom, pan)
+- Layer labels displayed
+- "Disable Comparison" button to exit mode
+
+#### Step 5: Exit Comparison
+- **Action**: Click "Disable Comparison" button
+- **Result**:
+  - `comparisonMode` state set to `false`
+  - LayerSwitcher component shown again
+  - Map returns to normal single view
+
+### Component Architecture
+
+#### New Components to Create
+
+**1. ComparisonButton.tsx**
+- Location: `src/components/ui/ComparisonButton.tsx`
+- Purpose: Toggle button to open comparison modal
+- Position: Top-right, below Layer Controller
+- State: None (just triggers modal)
+
+**2. ComparisonModal.tsx**
+- Location: `src/components/ui/ComparisonModal.tsx`
+- Purpose: Modal for layer selection
+- Props:
+  - `visible: boolean` - Modal visibility
+  - `onClose: () => void` - Close handler
+  - `onEnable: (left: string, right: string) => void` - Enable handler
+  - `layers: WMS_LAYERS[]` - Available layers
+- State:
+  - `leftLayer: string | null` - Selected left layer ID
+  - `rightLayer: string | null` - Selected right layer ID
+
+**3. CompareMap.tsx** (Already exists)
+- Location: `src/components/ui/CompareMap.tsx`
+- Purpose: Split view map with slider
+- Needs Update:
+  - Accept layer IDs as props
+  - Add disable button
+  - Emit disable event
+
+#### Modified Components
+
+**index.tsx State Additions**:
+```typescript
+const [comparisonMode, setComparisonMode] = useState(false)
+const [comparisonLeftLayer, setComparisonLeftLayer] = useState<string | null>(null)
+const [comparisonRightLayer, setComparisonRightLayer] = useState<string | null>(null)
+const [showComparisonModal, setShowComparisonModal] = useState(false)
+```
+
+**Conditional Rendering Logic**:
+```typescript
+// Hide LayerSwitcher when in comparison mode
+{!comparisonMode && <LayerSwitcher ... />}
+
+// Show comparison button only when not in comparison mode
+{!comparisonMode && (
+  <ComparisonButton onClick={() => setShowComparisonModal(true)} />
+)}
+
+// Main map rendering
+{comparisonMode ? (
+  <CompareMap
+    leftLayerId={comparisonLeftLayer}
+    rightLayerId={comparisonRightLayer}
+    onDisable={() => setComparisonMode(false)}
+  />
+) : (
+  <MapContainer>
+    {/* Normal map view */}
+  </MapContainer>
+)}
+```
+
+### Technical Implementation Details
+
+#### State Flow
+1. **Initial State**: `comparisonMode = false`, modal closed
+2. **Open Modal**: User clicks button → `showComparisonModal = true`
+3. **Select Layers**: User selects left/right → update local modal state
+4. **Enable**: User clicks Enable → `comparisonMode = true`, `showComparisonModal = false`, store layer IDs
+5. **Disable**: User clicks Disable in CompareMap → `comparisonMode = false`
+
+#### Layer Data Management
+- Use `WMS_LAYERS` array as source
+- Filter out NOAA Predictions if needed (only compare elevation layers)
+- Pass layer configuration objects to CompareMap
+- CompareMap renders two MapContainers with selected layers
+
+#### Validation Rules
+- `leftLayer !== rightLayer` - Cannot compare same layer
+- `leftLayer && rightLayer` - Both must be selected
+- Disable selection of already-picked layer in opposite side
+
+#### UI/UX Considerations
+- Modal backdrop click closes modal
+- ESC key closes modal
+- Clear visual feedback for selected layers (checkmarks, colors)
+- Disabled state styling for Enable button
+- Smooth transitions between modes
+- Preserve main map state when exiting comparison
+
+### Files to Modify/Create
+
+**New Files**:
+1. `src/components/ui/ComparisonButton.tsx`
+2. `src/components/ui/ComparisonModal.tsx`
+
+**Modified Files**:
+1. `src/routes/index.tsx` - Add state and conditional rendering
+2. `src/components/ui/CompareMap.tsx` - Update props and add disable button
+3. `src/types/map.ts` - Add comparison-related types if needed
+
+### Testing Checklist
+- [ ] Comparison button appears below Layer Controller
+- [ ] Modal opens on button click
+- [ ] Can select left layer
+- [ ] Can select right layer
+- [ ] Cannot select same layer twice
+- [ ] Enable button disabled until both selected
+- [ ] Enable button activates when both selected
+- [ ] Clicking Enable closes modal and shows split view
+- [ ] LayerSwitcher hidden in comparison mode
+- [ ] Split view works with draggable slider
+- [ ] Maps are synchronized (zoom/pan)
+- [ ] Disable button exits comparison mode
+- [ ] LayerSwitcher reappears after disabling
+- [ ] Normal map view restored after disabling
+- [ ] Modal backdrop/ESC closes modal
+- [ ] UI controls don't trigger map clicks (existing fix)
+
+### Future Enhancements (Optional)
+- Remember last comparison (localStorage)
+- Opacity sliders for each layer
+- Quick comparison presets
+- Export comparison as image
+- Add comparison annotations
+- Sync/unsync zoom controls toggle
+- Layer info tooltips in modal
