@@ -1,218 +1,306 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 📋 Project Overview
 
-## 📋 AI Development Rules
+**HazERT** is a TanStack Start-based flood alert and water level monitoring web application focused on the Norfolk, Virginia area. The application provides real-time and historical tide/water level data visualization through interactive maps, charts, and WMS (Web Map Service) layers from GeoServer.
 
-This project includes comprehensive development rules to ensure consistency, quality, and maintainability. **IMPORTANT**: Always follow these rules when working with this codebase.
+### Key Capabilities
+- **Interactive Maps**: Multi-layer mapping with Google Maps base layers and WMS overlay data
+- **Side-by-Side Comparison**: Compare different DEM (Digital Elevation Model) datasets
+- **Tide Monitoring**: Real-time station data with interactive charts and historical trends
+- **Water Level Visualization**: ApexCharts-powered tide data with historical vs predicted data
+- **Station Management**: Filterable monitoring sites with categorized station types
+- **Interactive Station Points**: Click-to-query GeoServer point layers with modal data display
+- **Pen Mode**: Hover-to-query water depth/elevation data with real-time tooltip display
 
-When you add or edit some pages or code, always try to use the linting for that page and fix it iteratively.
+## 🏗️ Architecture
 
-### Core Rule Files (Located in `/rules/`)
-
-1. **[Form Implementation Rules](./rules/form-rules.md)** - Required patterns for TanStack Form implementation with advanced composition
-3. **[Navigation Rules](./rules/navigation-rules.md)** - TanStack Router navigation patterns
-4. **[React Query Rules](./rules/react-query-rules.md)** - Data fetching and state management patterns
-
-### Quick Reference
-
-- **Navigation**: Use params object for dynamic routes, avoid template literals in `to` prop
-- **Data Fetching**: Always use React Query, proper loading states, cache invalidation
-
-## Development Commands
-
-This project uses `pnpm` as the package manager. Essential commands:
-
-```bash
-# Development
-pnpm dev          # Start dev server on port 3000
-pnpm start        # Start production server
-pnpm build        # Build for production
-pnpm serve        # Preview production build
-
-# Testing
-pnpm test         # Run Vitest tests
-
-# Code Quality (Biome)
-pnpm check        # Run all checks (lint, format, organize imports)
-pnpm lint         # Lint only
-pnpm format       # Format entire project and write changes
-```
-
-# Additional Commands
-
-don't run pnpm dev without my permission
-
-## Tech Stack & Architecture
-
-This is a TanStack Start application with a modern React stack:
+### Technology Stack
 
 - **Framework**: TanStack Start (full-stack React with file-based routing)
 - **Routing**: TanStack Router with file-based routes in `src/routes/`
-- **State Management**: TanStack Store with derived state support
-- **Data Fetching**: TanStack Query integrated via context
-- **UI Components**: Shadcn/ui with Radix UI primitives
-- **Styling**: Tailwind CSS v4
-- **Type Safety**: TypeScript with T3 Env for environment variables
-- **Code Quality**: Biome for linting/formatting (2-space indentation, double quotes)
+- **Data Fetching**: TanStack Query for server state management
+- **Maps**: React Leaflet with Leaflet.js for interactive mapping
+- **Charts**: ApexCharts/React-ApexCharts for data visualization
+- **WMS Integration**: Leaflet WMS layers connecting to Norfolk GeoServer
+- **Mock API**: MSW (Mock Service Worker) for development data
+- **Styling**: Tailwind CSS for component styling
+- **Icons**: Lucide React for consistent iconography
+- **TypeScript**: Full type safety with custom interfaces
 
-## Key Architecture Patterns
+### Core Data Flow
 
-### Routing & Context
+1. **Map Layer Management**: WMS layers from Norfolk GeoServer (`http://202.4.127.189:5459/geoserver/wms`)
+2. **Station Data**: Mock tide stations with real-time values via MSW handlers
+3. **Tide Data**: Time-series water level data with historical/predicted classifications
+4. **Layer Comparison**: Side-by-side visualization using leaflet-side-by-side plugin
+5. **Interactive Points**: GeoServer GetFeatureInfo requests for real-time station data on map clicks
 
-- File-based routing in `src/routes/` with automatic route generation
-- Root route (`__root.tsx`) provides QueryClient context to all routes
-- Routes can use loaders for server-side data loading
+## 🗂️ File Structure
 
-#### Navigation Patterns
-
-**IMPORTANT**: Always use the proper TanStack Router Link pattern for dynamic routes:
-
-```tsx
-// ✅ Correct: Use route path with params object
-<Link to="/building/$buildingId/add-flat" params={{ buildingId }}>
-  <Button>Add Flat</Button>
-</Link>
-
-// ✅ Correct: Always use params object for any parameterized route
-<Link to="/flat/$flatId" params={{ flatId: flat.id }}>
-  View Flat
-</Link>
-
-// ❌ Avoid: Template literals in `to` prop for ANY parameterized routes
-<Link to={`/flat/${flat.id}`}>View Flat</Link>
-<Link to={`/building/${buildingId}/add-flat`}>Add Flat</Link>
+```
+src/
+├── components/
+│   ├── ui/
+│   │   ├── CompareMap.tsx              # Side-by-side map comparison
+│   │   ├── BrushChart.tsx              # ApexCharts brush/zoom component
+│   │   └── TideMonitoringSiteCategories.tsx  # Station filtering sidebar
+│   ├── TideChart.jsx                   # Main tide data chart component
+│   ├── DefaultCatchBoundary.tsx        # Error boundary component
+│   ├── NotFound.tsx                    # 404 component
+│   └── DebugMSW.jsx                    # MSW debugging component
+├── hooks/
+│   ├── useMapLayers.ts                 # Map data fetching hooks
+│   ├── useStations.js                  # Station data management
+│   └── useTideData.js                  # Tide data fetching
+├── routes/
+│   ├── __root.tsx                      # Root layout with QueryClient
+│   ├── index.tsx                       # Main map with WMS layers
+│   ├── compare-map.tsx                 # Side-by-side comparison route
+│   ├── water-level.tsx                 # Tide monitoring interface
+│   └── temporary.tsx                   # Temporary/test route
+├── types/
+│   └── map.ts                          # TypeScript interfaces for map data
+├── mocks/
+│   ├── handlers.js                     # MSW API handlers
+│   └── browser.js                      # MSW browser setup
+├── integrations/
+│   └── tanstack-query/
+│       └── root-provider.tsx           # QueryClient configuration
+├── utils/
+│   └── seo.ts                          # SEO meta tag utilities
+└── styles/
+    └── app.css                         # Global styles
 ```
 
-The params object approach ensures proper type safety and route matching with TanStack Router's type-safe routing system.
+## 🔑 Key Files & Components
 
-### State Management
+### Map Components
 
-- TanStack Store for global state (`src/lib/demo-store.ts`)
-- Derived stores for computed state that auto-update
-- React hooks integration with `useStore`
+#### `src/routes/index.tsx` - Main Map Interface
+- **Purpose**: Primary flood alert map with WMS layers and base layer switching
+- **Features**:
+  - Water surface elevation raster overlay (`rendered_noaa_wse`)
+  - Interactive point layer (`noaa_predictions`) with click-to-query functionality
+  - Pen mode with hover-to-query depth data and floating tooltip
+  - Layer visibility controls with toggleable layers
+  - Base layer switcher (Default/Satellite/Terrain)
+  - Google Maps base layers
+  - Real-time station data modal on point clicks
+  - Bottom sheet with date range controls (Day/Week/2 Week views)
+- **Location**: Norfolk/Moyock area (36.8443205, -76.2820786)
+- **Coordinate System**: EPSG:4326 (WGS84) for all WMS requests
 
-### Data Fetching
+#### `src/components/ui/CompareMap.tsx` - Side-by-Side Comparison
+- **Purpose**: Advanced map comparison using leaflet-side-by-side plugin
+- **Features**:
+  - Drag slider for layer comparison
+  - Loading states and error handling
+  - Legend component for layer identification
+  - Automatic layer switching
 
-- TanStack Query integrated via `src/integrations/tanstack-query/`
-- QueryClient provided through router context
-- Can use route loaders or useQuery hooks
+#### `src/routes/water-level.tsx` - Tide Monitoring
+- **Purpose**: Station-based water level monitoring with charts
+- **Features**:
+  - Interactive station markers with water level values
+  - Station selection and popup details
+  - Integrated tide chart display
+  - Two-panel layout (map + charts)
 
-#### Server Functions
+### WMS Integration
 
-**IMPORTANT**: Use TanStack Start server functions with proper validation for all database operations:
-
-```typescript
-// ✅ Correct: Server function with Zod validator
-export const getBuildingWithFlats = createServerFn({
-  method: "GET",
-})
-  .validator(
-    z.object({
-      buildingId: z.string(),
-    }),
-  )
-  .handler(async ({ data }) => {
-    // Database operations here
-    return { building, flats };
-  });
-
-// ✅ Correct: Calling server functions
-// In loaders:
-loader: async ({ params }) => {
-  return getBuildingWithFlats({ data: { buildingId: params.buildingId } });
-}
-
-// In components:
-await addFlat({
-  data: {
-    buildingId,
-    ...formData,
+#### WMS Layers Configuration
+```javascript
+const WMS_LAYERS = [
+  {
+    id: 'water_surface_elevation',
+    name: 'Water Surface Elevation',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:rendered_noaa_wse',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 502
   },
-});
-
-// ❌ Avoid: Direct database calls in loaders
-loader: async ({ params }) => {
-  const data = await db.select()...  // Don't do this
-}
+  {
+    id: 'raster_geo_point',
+    name: 'NOAA Predictions',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:noaa_predictions',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 503
+  }
+]
 ```
 
-Server functions ensure proper client/server separation and type safety.
+**Note**: Previous DEM layers (`NorflokDEM10m_Prj1`, `NorflokDEM10m_Prj2`) were removed due to projection issues. The new `rendered_noaa_wse` layer uses EPSG:4326 (standard WGS84 lat/lon) for compatibility.
 
+### Data Management
 
-### Application Architecture
+#### `src/hooks/useMapLayers.ts` - Map Data Hooks
+- **`useMapLayers()`**: Fetches available map layers
+- **`useCompareMapData()`**: Loads side-by-side comparison configuration
+- **`useMapLayer(layerId)`**: Individual layer data fetching
+- **`useStationClick(clickParams)`**: GeoServer GetFeatureInfo requests for interactive point data
 
-**Feature-Based Structure**: Application organized by domain features in `src/features/`:
+#### `src/hooks/useStations.js` - Station Management
+- **Purpose**: Loads GeoJSON FeatureCollection of monitoring stations
+- **Data Structure**: Norfolk area stations with coordinates and current values
 
-- **`src/features/auth/`** - Authentication system with forms, hooks, and components
-- **`src/features/admin/`** - Admin dashboard with user management and server functions
-- **`src/features/buildings/`** - Building and flat management with CRUD operations
+#### `src/hooks/useTideData.js` - Tide Data
+- **Purpose**: Time-series tide data with configurable date ranges
+- **Features**: Historical vs predicted data classification, retry logic
 
-**Key Architectural Patterns**:
+### Charts & Visualization
 
-- **Authentication Middleware**: All server functions use middleware for authentication (`isAuthenticated`, `requireAdmin`, `optionalAuthentication`)
-- **Server Functions**: Located in `src/lib/server-functions/` with proper validation and error handling
-- **Form Composition**: Advanced TanStack Form patterns with field components in `src/features/auth/components/form-components.tsx`
-- **Route Protection**: Authentication guards in route definitions with proper redirects
+#### `src/components/TideChart.jsx` - Tide Data Visualization
+- **Technology**: ApexCharts with time-series configuration
+- **Features**:
+  - Historical vs predicted data series (blue/purple)
+  - Smooth monotonic cubic curves
+  - Interactive tooltips and zoom
+  - Loading states
 
-### Component Structure
+#### `src/components/ui/BrushChart.tsx` - Advanced Charting
+- **Purpose**: Brush/zoom chart component with main + navigator charts
+- **Features**: Connected brush selection, gradient fills, synchronized zoom
 
-- UI components in `src/components/ui/` follow Shadcn patterns
-- Feature components organized by domain in `src/features/[feature]/components/`
-- Demo components prefixed with `demo.` (can be deleted)
-- Tailwind CSS with utility-first approach
+### API & Mock Data
 
-### Forms
+#### `src/mocks/handlers.js` - MSW API Handlers
+- **Endpoints**:
+  - `GET /api/stations` - Station FeatureCollection
+  - `GET /api/stations/:id/tides` - Time-series tide data
+  - `GET /api/map-layers` - Available map layers
+  - `GET /api/map-layers/compare` - Comparison configuration
+- **Data Generation**: Realistic tide patterns with tidal high/low cycles
 
-- **IMPORTANT**: Follow the patterns defined in [`rules/form-rules.md`](./rules/form-rules.md) for all form implementations
-- TanStack Form with composition patterns and advanced field components
-- Form-level validation using Zod schemas
-- Consistent field components with proper labeling
-- Reference implementations in `src/features/auth/components/`
+## ⚙️ Setup & Configuration
 
-## Adding New Components
-
-Use Shadcn CLI for new UI components:
-
+### Development Commands
 ```bash
-pnpx shadcn@latest add [component-name]
+# Start development server (port 3000)
+pnpm dev
+
+# Build for production
+pnpm build
+
+# Start production server
+pnpm start
 ```
 
-## Claude Code Slash Commands
+### Environment Setup
+- **Node.js**: Modern ES modules with TypeScript
+- **Vite**: Development server with HMR
+- **MSW**: Mock service worker for API simulation
+- **TanStack Router**: File-based routing with type safety
 
-This project includes custom slash commands for Claude Code:
+### Key Configuration Files
+- **`vite.config.ts`**: Vite + TanStack Start + React configuration
+- **`tsconfig.json`**: TypeScript with path aliases (`~/*`, `@/*`)
+- **`package.json`**: Dependencies including Leaflet, ApexCharts, MSW
 
-- `/commit` - Smart Git commit with conventional commit format, automatic staging, and quality checks
-- `/feature` - Create new features following TanStack Start patterns with routes, components, and tests
-- `/debug` - Comprehensive debugging assistant for TanStack Start applications
-- `/deploy` - Deployment preparation with pre-flight checks and platform-specific guidance
+## 🎯 Key Features
 
-Use these commands in Claude Code by typing `/` followed by the command name.
+### Map Functionality
+1. **Multi-Layer Mapping**: Base layers + WMS overlays
+2. **Layer Controls**: Toggle visibility, opacity, z-index management
+3. **Interactive Markers**: Station data with custom circular icons
+4. **Side-by-Side Comparison**: Leaflet plugin for DEM dataset comparison
+5. **Point Layer Interaction**: Click-to-query station points with real-time data modal display
+6. **Pen Mode**: Hover-based water depth queries with:
+   - Real-time GetFeatureInfo API requests to GeoServer
+   - Floating tooltip with depth values (GRAY_INDEX property)
+   - Throttle + debounce optimization for performance
+   - Velocity-based request skipping during fast cursor movement
+   - EPSG:4326 coordinate system with degree-based BBOX calculations
 
-## Development Notes
+### Alert Systems
+1. **Station Monitoring**: 15 Norfolk area stations with real-time values
+2. **Visual Indicators**: Color-coded markers based on water levels
+3. **Interactive Popups**: Station details and data access
+4. **Status Tracking**: Active/inactive station management
 
-- Auto-generated files like `routeTree.gen.ts` are ignored by Biome
-- Demo files (prefixed with `demo`) can be safely removed
-- Devtools available for Router, Query, and Store in development
-- Path aliases configured via tsconfig paths
+### Data Visualization
+1. **Time-Series Charts**: Historical and predicted tide data
+2. **Brush Navigation**: Zoom and pan through time ranges
+3. **Multi-Series Data**: Historical (blue) vs Predicted (purple)
+4. **Export Capabilities**: Chart download and selection tools
 
-## Application Domain Model
+### Responsive Design
+1. **Mobile-Friendly**: Responsive map and chart layouts
+2. **Touch Support**: Mobile map interaction
+3. **Adaptive UI**: Collapsible sidebars and panels
 
+## 🚀 Development Notes
 
+### Adding New WMS Layers
+1. Update `WMS_LAYERS` configuration in route components
+2. Add layer metadata to `src/types/map.ts`
+3. Update MSW handlers for new layer APIs
 
-**Key Business Logic**:
+### Interactive Point Layers
+1. **Click Handler**: Map click events capture coordinates and build GetFeatureInfo requests
+2. **GeoServer Integration**: Direct JSON API calls to Norfolk GeoServer WMS endpoints
+3. **Modal Display**: Station data displayed in responsive bottom sheet with data tables
+4. **Date Range Controls**: Day/Week/2-Week view modes with automatic date calculations
+5. **TypeScript Support**: Full type safety for GeoServer response structures
 
-- Multi-language support (Bangla/English) for names and locations
-- Comprehensive pagination for large datasets (10 items per page)
+### Pen Mode (Hover-to-Query)
+1. **Activation**: Toggle button in top-right corner (below layer switcher)
+2. **Coordinate System**: Uses EPSG:4326 (WGS84) for all calculations - no projection transformations needed
+3. **BBOX Calculation**:
+   - Calculates pixel size in degrees: `(bounds.getEast() - bounds.getWest()) / mapSize.x`
+   - Creates 101x101 pixel window centered on cursor
+   - Builds BBOX as `[lng±50px, lat±50px]` in decimal degrees
+4. **API Request Format**:
+   - `SRS=EPSG:4326` (not EPSG:6595)
+   - `X=50, Y=50` (center of 101x101 grid)
+   - `BBOX` in lat/lon format (e.g., `-76.036,36.802,-76.002,36.829`)
+5. **Performance Optimizations**:
+   - Abort controller for canceling previous requests
+   - Throttle: Queries every 250ms during slow movement
+   - Debounce: Final query after 400ms of inactivity
+   - Velocity detection: Skips queries during fast cursor movement (>0.5px/ms)
+6. **Response Handling**: Extracts `GRAY_INDEX` property from GeoServer response (returns null for NoData pixels)
 
-## Code Style Rules
+### Extending Station Data
+1. Modify station data in `src/mocks/handlers.js`
+2. Update TypeScript interfaces in components
+3. Add new chart series or map markers as needed
 
-- **Self-closing tags**: Always use self-closing syntax for empty HTML/JSX elements
-  - ✅ Correct: `<div className="spinner" />`
-  - ❌ Incorrect: `<div className="spinner"></div>`
-- **CUID2 IDs**: Use `createId()` from `@paralleldrive/cuid2` for all entity IDs
-- **TypeScript**: Strict type safety with Zod schemas for validation
-- **Layout Height Pattern**: Since the application uses a grid layout with header/main/footer structure, always use `h-full` instead of `min-h-screen` for page containers
-  - ✅ Correct: `<div className="h-full bg-gradient-to-br from-teal-50 via-slate-50 to-teal-100/50">`
-  - ❌ Incorrect: `<div className="min-h-screen bg-gradient-to-br from-teal-50 via-slate-50 to-teal-100/50">`
-  - This ensures proper height distribution within the grid layout structure defined in `_layout.tsx`
+### Chart Customization
+- ApexCharts options in `TideChart.jsx`
+- Custom color schemes and themes
+- Interactive features and tooltips
+
+## 🎨 UI Components
+
+### Pen Mode Components
+- **`PenModeToggle`**: Toggle button for enabling/disabling pen mode
+- **`PenModeTooltip`**: Floating tooltip that follows cursor with depth data
+- **Features**: Loading states, null data handling, formatted depth display (meters, 2 decimal places)
+
+### Station Modal (Bottom Sheet)
+- **Design**: Bottom sheet that slides up from bottom (50% viewport height)
+- **Header**: Station info, date range picker, view mode buttons (Day/Week/2 Week), export/table actions
+- **Date Controls**: Selectable start date with auto-calculated end date based on view mode
+- **Data Table**: Scrollable table with time, water level, NAVD, datum, and prediction type columns
+- **Footer**: Last seen timestamp and record count
+
+## 🔧 Technical Notes
+
+### Coordinate System Migration
+The application was migrated from EPSG:6595 (NAD83/Virginia Lambert) to EPSG:4326 (WGS84) for WMS requests:
+- **Removed**: proj4 dependency and coordinate transformations
+- **Simplified**: Direct degree-based calculations using Leaflet's native coordinate system
+- **Benefit**: Compatibility with standard WMS layers, reduced complexity, better performance
+
+### Known Limitations
+- **Pen Mode NoData**: GRAY_INDEX returns `null` for pixels outside water coverage areas (land, model boundaries)
+- **Layer Coverage**: `rendered_noaa_wse` has data only in specific flood model domains
+- **Best Results**: Pen mode works best over water bodies (Chesapeake Bay, rivers, coastal areas)
+
+This TanStack Start application provides a solid foundation for flood monitoring and water level visualization, with extensible architecture for additional GIS features and real-time data integration. The interactive point layer system enables direct querying of GeoServer data sources with responsive modal interfaces for detailed station information display. The pen mode feature offers real-time depth querying with optimized performance for smooth user experience.

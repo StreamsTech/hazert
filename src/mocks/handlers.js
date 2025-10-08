@@ -29,11 +29,23 @@ const generateTideData = (stationId, days = 7) => {
 };
 
 // Generate station points
+
 const stations = [
-  { id: 'VA001', name: 'James River at Fort Monroe', lat: 36.9459, lng: -76.3081 },
-  { id: 'VA002', name: 'Chesapeake Bay Bridge', lat: 36.9737, lng: -76.1099 },
-  { id: 'VA003', name: 'Norfolk Harbor', lat: 36.8468, lng: -76.2951 },
-  // Add more stations...
+  { id: 'VA001', name: 'Norfolk Station', lat: 36.8443205, lng: -76.2820786, value: 0 },
+  { id: 'VA002', name: 'Ghent Station', lat: 36.8523415, lng: -76.2954321, value: 0.83 },
+  { id: 'VA003', name: 'Downtown Norfolk Station', lat: 36.8312089, lng: -76.2674532, value: 0 },
+  { id: 'VA004', name: 'West Norfolk Station', lat: 36.8567234, lng: -76.3012456, value: 0 },
+  { id: 'VA005', name: 'Colonial Place Station', lat: 36.8634512, lng: -76.2987654, value: 0 },
+  { id: 'VA006', name: 'East Norfolk Station', lat: 36.8389876, lng: -76.2543210, value: 0 },
+  { id: 'VA007', name: 'Berkley Station', lat: 36.8201234, lng: -76.2765432, value: 0 },
+  { id: 'VA008', name: 'Larchmont Station', lat: 36.8756789, lng: -76.2898765, value: 0 },
+  { id: 'VA009', name: 'Campostella Station', lat: 36.8098765, lng: -76.2634521, value: 0 },
+  { id: 'VA010', name: 'West Ghent Station', lat: 36.8412345, lng: -76.3123456, value: 1.2 },
+  { id: 'VA011', name: 'Riverview Station', lat: 36.8567890, lng: -76.2712345, value: 0.45 },
+  { id: 'VA012', name: 'Park Place Station', lat: 36.8234567, lng: -76.2876543, value: 0 },
+  { id: 'VA013', name: 'Northside Station', lat: 36.8676543, lng: -76.2654321, value: 2.1 },
+  { id: 'VA014', name: 'Ballentine Station', lat: 36.8345678, lng: -76.2456789, value: 0 },
+  { id: 'VA015', name: 'Southside Station', lat: 36.8123456, lng: -76.2987654, value: 0.67 }
 ];
 
 export const handlers = [
@@ -50,7 +62,8 @@ export const handlers = [
         properties: {
           id: station.id,
           name: station.name,
-          status: 'active'
+          status: 'active',
+          value: station.value
         }
       }))
     });

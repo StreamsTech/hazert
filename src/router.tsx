@@ -14,8 +14,20 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
         serviceWorker: {
           url: '/mockServiceWorker.js',
         },
+        // Better lifecycle management
+        quiet: false,
+        waitUntilReady: true,
       })
-      console.log('🚀 MSW enabled for development')
+
+      // Ensure MSW is ready before app starts making requests
+      await worker.listHandlers()
+      console.log('🚀 MSW enabled for development with', worker.listHandlers().length, 'handlers')
+
+      // Handle service worker updates/reloads
+      worker.events.on('unhandledException', ({ error, request }) => {
+        console.error('MSW unhandled exception:', error, 'Request:', request.url)
+      })
+
     } catch (error) {
       console.error('Failed to start MSW:', error)
     }
