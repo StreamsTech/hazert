@@ -13,20 +13,26 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
   const chartData = useMemo(() => {
     if (!data || !Array.isArray(data)) return { series: [] }
 
+    // Define data point type
+    interface DataPoint {
+      x: number
+      y: number
+    }
+
     // Sort all data by timestamp first
-    const sortedData = [...data].sort((a, b) => new Date(a.t) - new Date(b.t))
+    const sortedData = [...data].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
 
     // Get current date/time for comparison
     const now = new Date()
 
     // Split data based on current date
-    const historicalData = []
-    const predictedData = []
-    let transitionPoint = null
+    const historicalData: DataPoint[] = []
+    const predictedData: DataPoint[] = []
+    let transitionPoint: DataPoint | null = null
 
     sortedData.forEach((item) => {
       const itemDate = new Date(item.t)
-      const point = {
+      const point: DataPoint = {
         x: itemDate.getTime(),
         y: item.v
       }
@@ -46,7 +52,7 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
     })
 
     // Create series array
-    const series = []
+    const series: Array<{ name: string; data: DataPoint[] }> = []
 
     if (historicalData.length > 0) {
       series.push({

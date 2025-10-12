@@ -53,11 +53,35 @@ interface WMSLayerConfig {
 }
 
 interface CompareMapProps {
-  leftLayerId: string | null
-  rightLayerId: string | null
-  layersConfig: readonly WMSLayerConfig[]
-  onDisable: () => void
+  leftLayerId?: string | null
+  rightLayerId?: string | null
+  layersConfig?: readonly WMSLayerConfig[]
+  onDisable?: () => void
 }
+
+// Default WMS layers configuration
+const DEFAULT_WMS_LAYERS: readonly WMSLayerConfig[] = [
+  {
+    id: 'water_surface_elevation',
+    name: 'Water Surface Elevation',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:rendered_noaa_wse',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 502
+  },
+  {
+    id: 'water_surface_elevation_2nd',
+    name: 'Water Surface Elevation 2nd Phase',
+    url: 'http://202.4.127.189:5459/geoserver/wms',
+    layers: 'flood-app:rendered_noaa_wse_2nd',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 503
+  }
+] as const
 
 // Legend Component
 interface MapLegendProps {
@@ -123,10 +147,10 @@ const DisableButton: React.FC<DisableButtonProps> = ({ onDisable }) => (
 
 // Main CompareMap Component
 export const CompareMap: React.FC<CompareMapProps> = ({
-  leftLayerId,
-  rightLayerId,
-  layersConfig,
-  onDisable
+  leftLayerId = 'water_surface_elevation',
+  rightLayerId = 'water_surface_elevation_2nd',
+  layersConfig = DEFAULT_WMS_LAYERS,
+  onDisable = () => console.log('Comparison disabled')
 }) => {
   const mapRef = useRef<L.Map | null>(null)
   const sideBySideRef = useRef<any>(null)

@@ -167,9 +167,13 @@ function MapComponent() {
   const { data: stationsData, isLoading, error } = useStations()
   const [isMapReady, setIsMapReady] = useState(false)
   const mapRef = useRef(null)
-  if (stationsData?.features) {
-    console.log('Features:', stationsData.features)
-  }
+
+  // Log features when available
+  useEffect(() => {
+    if (stationsData?.features) {
+      console.log('Features:', stationsData.features)
+    }
+  }, [stationsData])
 
   // Load Leaflet CSS on client side
   useEffect(() => {
