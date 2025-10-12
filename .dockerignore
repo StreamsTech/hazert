@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+\.env
+*.local
+*.log
+pnpm-workspace.yaml
+/.idea
+.vscode
+coverage
+dist.tar
+Dockerfile
+docker-compose.yml

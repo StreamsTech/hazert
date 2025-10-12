@@ -1,0 +1,18 @@
+version: "3.8"
+services:
+  web:
+    build: .
+    image: hazert-frontend:latest
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+
+  # optional backend service placeholder
+  # backend:
+  #   image: your-backend-image:latest
+  #   environment:
+  #     - PORT=3000
+  #   expose:
+  #     - "3000"
