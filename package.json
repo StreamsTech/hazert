@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
-    "start": "vite start"
+    "start": "node .output/server/index.mjs",
+    "preview": "vite start"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",
