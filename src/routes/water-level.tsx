@@ -58,7 +58,7 @@ const WMS_LAYERS = [
   {
     id: 'raster_data_1',
     name: 'Raster Data 1',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:NorflokDEM10m_Prj1',
     format: 'image/png',
     transparent: true,
@@ -68,7 +68,7 @@ const WMS_LAYERS = [
   {
     id: 'raster_data_2',
     name: 'Raster Data 2',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:NorflokDEM10m_Prj2',
     format: 'image/png',
     transparent: true,

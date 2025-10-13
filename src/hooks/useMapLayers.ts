@@ -66,7 +66,7 @@ export function useStationClick(clickParams: StationClickParams | null, enabled:
     queryFn: async () => {
       if (!clickParams) throw new Error('No click parameters provided')
 
-      const url = new URL('http://202.4.127.189:5459/geoserver/flood-app/wms')
+      const url = new URL(`${import.meta.env.VITE_GEOSERVER_BASE_URL.replace('/wms', '')}/flood-app/wms`)
       url.searchParams.set('SERVICE', 'WMS')
       url.searchParams.set('VERSION', '1.1.1')
       url.searchParams.set('REQUEST', 'GetFeatureInfo')

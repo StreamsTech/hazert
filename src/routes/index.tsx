@@ -57,7 +57,7 @@ const WMS_LAYERS = [
   {
     id: 'water_surface_elevation',
     name: 'Water Surface Elevation',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:rendered_noaa_wse',
     format: 'image/png',
     transparent: true,
@@ -67,7 +67,7 @@ const WMS_LAYERS = [
   {
     id: 'water_surface_elevation_second_phase',
     name: 'Water Surface Elevation 2nd Phase',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:noaa_wse_second',
     format: 'image/png',
     transparent: true,
@@ -77,7 +77,7 @@ const WMS_LAYERS = [
   {
     id: 'raster_geo_point',
     name: 'NOAA Predictions',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:noaa_predictions',
     format: 'image/png',
     transparent: true,
@@ -654,7 +654,7 @@ function MapComponent() {
       const paramsString = params.toString() + '&STYLES'
 
       // Use correct base URL with /flood-app/ workspace
-      const baseUrl = 'http://202.4.127.189:5459/geoserver/flood-app/wms'
+      const baseUrl = `${import.meta.env.VITE_GEOSERVER_BASE_URL.replace('/wms', '')}/flood-app/wms`
 
       const response = await fetch(
         `${baseUrl}?${paramsString}`,
