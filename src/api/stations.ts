@@ -23,14 +23,17 @@ export const fetchStationWaterLevel = async (
     const formattedEndDate = formatDateForAPI(endDate)
 
     const url = `${API_CONFIG.baseURL}/noaa/water-level/download-all?begin_date=${formattedBeginDate}&end_date=${formattedEndDate}`
-
+    console.log(stationId);
+    console.log(url);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify([stationId]),
+      body: JSON.stringify([stationId.toString()]),
     })
+
+
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`)
@@ -39,7 +42,7 @@ export const fetchStationWaterLevel = async (
     const data = await response.json()
     return data
   } catch (error) {
-    console.error('Error fetching station water level:', error)
+    console.error('Error:::', error)
     throw error
   }
 }

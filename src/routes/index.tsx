@@ -78,7 +78,7 @@ const WMS_LAYERS = [
     id: 'raster_geo_point',
     name: 'NOAA Predictions',
     url: import.meta.env.VITE_GEOSERVER_BASE_URL,
-    layers: 'flood-app:noaa_predictions',
+    layers: 'flood-app:NOAA_Pred_Sts_Prj', // flood-app:noaa_predictions
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
@@ -206,8 +206,9 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   if (!data || data.features.length === 0) return null
 
   const station = data.features[0]
-  const stationName = station.properties.station_name
-  const stationId = station.properties.station_id
+  console.log(station.properties.StationID);
+  const stationName = station.properties.Station
+  const stationId = station.properties.StationID
 
   // Date range state
   const [selectedDate, setSelectedDate] = useState<string>('')
@@ -798,7 +799,7 @@ function MapComponent() {
           width: size.x,
           height: size.y,
           bbox: `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`,
-          layers: 'flood-app:noaa_predictions'
+          layers: 'flood-app:NOAA_Pred_Sts_Prj'
         }
 
         console.log('📍 Setting click params for station query:', params)
@@ -914,7 +915,7 @@ function MapComponent() {
                     </div>
                   ) : markerDepth !== null ? (
                     <div className="text-base font-semibold text-gray-900">
-                      {markerDepth.toFixed(2)} m
+                      {markerDepth.toFixed(2)} feet
                     </div>
                   ) : (
                     <div className="text-sm text-gray-400">No data</div>
