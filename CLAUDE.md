@@ -126,7 +126,7 @@ const WMS_LAYERS = [
     id: 'raster_geo_point',
     name: 'NOAA Predictions',
     url: 'http://202.4.127.189:5459/geoserver/wms',
-    layers: 'flood-app:noaa_predictions',
+    layers: 'flood-app:NOAA_Pred_Sts_Prj',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
