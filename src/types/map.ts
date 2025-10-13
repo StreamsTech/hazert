@@ -42,8 +42,8 @@ export interface SideBySideOptions {
 
 // GeoServer GetFeatureInfo response interfaces
 export interface StationProperties {
-  station_id: string
-  station_name: string
+  StationID: string
+  Station: string
   time: string
   v: number
   v_navd: number

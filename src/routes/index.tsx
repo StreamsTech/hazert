@@ -206,7 +206,6 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   if (!data || data.features.length === 0) return null
 
   const station = data.features[0]
-  console.log(station.properties.StationID);
   const stationName = station.properties.Station
   const stationId = station.properties.StationID
 
