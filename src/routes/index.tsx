@@ -95,7 +95,7 @@ function LayerController({
 }) {
   return (
     <div
-      className="layer-controller-prevent-click absolute top-4 left-4 bg-white p-3 rounded-md shadow-md z-[1000] min-w-[200px]"
+      className="layer-controller-prevent-click absolute bottom-4 left-4 bg-white p-3 rounded-md shadow-md z-[1000] min-w-[200px]"
       onClick={(e) => {
         // Stop click propagation to prevent map click handler from firing
         e.stopPropagation()
