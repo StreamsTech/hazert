@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Check } from 'lucide-react'
+import { X } from 'lucide-react'
 
 interface Layer {
   id: string
@@ -77,74 +77,50 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
 
           {/* Left Layer Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label htmlFor="leftLayer" className="block text-sm font-medium text-gray-700 mb-3">
               Left Layer
             </label>
-            <div className="space-y-2">
+            <select
+              id="leftLayer"
+              value={leftLayer || ''}
+              onChange={(e) => setLeftLayer(e.target.value || null)}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all hover:border-gray-400"
+            >
+              <option value="">Select left layer</option>
               {layers.map((layer) => (
-                <label
+                <option
                   key={`left-${layer.id}`}
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                    leftLayer === layer.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  value={layer.id}
+                  disabled={rightLayer === layer.id}
                 >
-                  <input
-                    type="radio"
-                    name="leftLayer"
-                    value={layer.id}
-                    checked={leftLayer === layer.id}
-                    onChange={() => setLeftLayer(layer.id)}
-                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="flex-1 text-sm text-gray-900">{layer.name}</span>
-                  {leftLayer === layer.id && (
-                    <Check className="w-5 h-5 text-blue-600" />
-                  )}
-                </label>
+                  {layer.name}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Right Layer Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label htmlFor="rightLayer" className="block text-sm font-medium text-gray-700 mb-3">
               Right Layer
             </label>
-            <div className="space-y-2">
-              {layers.map((layer) => {
-                const isDisabled = leftLayer === layer.id
-                return (
-                  <label
-                    key={`right-${layer.id}`}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                      isDisabled
-                        ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
-                        : rightLayer === layer.id
-                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="rightLayer"
-                      value={layer.id}
-                      checked={rightLayer === layer.id}
-                      onChange={() => setRightLayer(layer.id)}
-                      disabled={isDisabled}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
-                    />
-                    <span className={`flex-1 text-sm ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>
-                      {layer.name}
-                    </span>
-                    {rightLayer === layer.id && !isDisabled && (
-                      <Check className="w-5 h-5 text-blue-600" />
-                    )}
-                  </label>
-                )
-              })}
-            </div>
+            <select
+              id="rightLayer"
+              value={rightLayer || ''}
+              onChange={(e) => setRightLayer(e.target.value || null)}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all hover:border-gray-400"
+            >
+              <option value="">Select right layer</option>
+              {layers.map((layer) => (
+                <option
+                  key={`right-${layer.id}`}
+                  value={layer.id}
+                  disabled={leftLayer === layer.id}
+                >
+                  {layer.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Enable Button */}
