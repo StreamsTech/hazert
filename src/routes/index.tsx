@@ -447,7 +447,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         </div>
 
         {/* Data Body - Table and Chart */}
-        <div className="flex-1 overflow-y-auto p-4" style={{ height: 'calc(100% - 180px)' }}>
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-0" style={{ height: 'calc(100% - 180px)' }}>
           {viewMode === 'table' ? (
             /* Data Table */
             <div>
@@ -490,7 +490,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         </div>
 
         {/* Footer */}
-        <div className="py-2 px-4 border-t bg-gray-50">
+        <div className="py-1 px-4 border-t bg-gray-50">
           <div className="flex justify-between items-center text-sm text-gray-600">
             <span>Last Seen: {data.timeStamp}</span>
             <span>{waterLevelData.length} records found</span>
@@ -583,10 +583,9 @@ function MapComponent() {
 
   // Get highest z-index DEM raster layer (for pen mode depth queries)
   const getActiveLayer = useCallback(() => {
-    // Filter only DEM raster layers (not point layers)
+    // Filter only visible DEM raster layers (not point layers)
     const demLayers = TOGGLEABLE_WMS_LAYERS.filter(layer =>
-      layerVisibility[layer.id] &&
-      layer.id === 'water_surface_elevation'
+      layerVisibility[layer.id]
     )
     if (demLayers.length === 0) return null
     // Return highest z-index DEM layer
