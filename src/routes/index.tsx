@@ -490,7 +490,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t bg-gray-50">
+        <div className="py-2 px-4 border-t bg-gray-50">
           <div className="flex justify-between items-center text-sm text-gray-600">
             <span>Last Seen: {data.timeStamp}</span>
             <span>{waterLevelData.length} records found</span>
