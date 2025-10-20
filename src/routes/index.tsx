@@ -10,6 +10,8 @@ import { WaterLevelChart } from '../components/WaterLevelChart'
 import { ComparisonButton } from '../components/ui/ComparisonButton'
 import { ComparisonModal } from '../components/ui/ComparisonModal'
 import { CompareMap } from '../components/ui/CompareMap'
+import { FullscreenControl } from '../components/ui/FullscreenControl'
+import { CurrentLocationControl } from '../components/ui/CurrentLocationControl'
 import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
@@ -940,8 +942,14 @@ function MapComponent() {
               </Popup>
             </Marker>
           )}
+
+          {/* Current Location Control - Go to current location (positioned below Fullscreen button) */}
+          <CurrentLocationControl />
         </MapContainer>
       )}
+
+      {/* Fullscreen Control - Toggle fullscreen mode (positioned below Comparison button) */}
+      {!comparisonMode && <FullscreenControl />}
 
       {/* Comparison Modal */}
       <ComparisonModal
