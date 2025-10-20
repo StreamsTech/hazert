@@ -53,7 +53,8 @@ export const Route = createFileRoute('/')({
   component: HomePage,
 })
 
-const WMS_LAYERS = [
+// Toggleable layers (appear in LayerController)
+const TOGGLEABLE_WMS_LAYERS = [
   {
     id: 'water_surface_elevation',
     name: 'Water Surface Elevation',
@@ -73,18 +74,20 @@ const WMS_LAYERS = [
     transparent: true,
     version: '1.3.0',
     zIndex: 501,
-  },
-  {
-    id: 'raster_geo_point',
-    name: 'NOAA Predictions',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
-    layers: 'flood-app:NOAA_Pred_Sts_Prj', // flood-app:noaa_predictions
-    format: 'image/png',
-    transparent: true,
-    version: '1.3.0',
-    zIndex: 503,
   }
 ] as const
+
+// Always-visible layer (not in LayerController)
+const PERMANENT_LAYER = {
+  id: 'raster_geo_point',
+  name: 'NOAA Predictions',
+  url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+  layers: 'flood-app:NOAA_Pred_Sts_Prj', // flood-app:noaa_predictions
+  format: 'image/png',
+  transparent: true,
+  version: '1.3.0',
+  zIndex: 503,
+} as const
 
 function LayerController({
   layerVisibility,
@@ -107,7 +110,7 @@ function LayerController({
     >
       <h3 className="font-medium mb-2 text-sm text-gray-800">Layers</h3>
       <div className="space-y-2">
-        {WMS_LAYERS.map((layer) => (
+        {TOGGLEABLE_WMS_LAYERS.map((layer) => (
           <label key={layer.id} className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -515,7 +518,7 @@ function MapComponent() {
   // Leaflet components are now imported at the top of the file
 
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>(
-    WMS_LAYERS.reduce(
+    TOGGLEABLE_WMS_LAYERS.reduce(
       (acc, layer) => ({
         ...acc,
         [layer.id]: true, // Both layers checked by default
@@ -573,7 +576,7 @@ function MapComponent() {
   // Get highest z-index DEM raster layer (for pen mode depth queries)
   const getActiveLayer = useCallback(() => {
     // Filter only DEM raster layers (not point layers)
-    const demLayers = WMS_LAYERS.filter(layer =>
+    const demLayers = TOGGLEABLE_WMS_LAYERS.filter(layer =>
       layerVisibility[layer.id] &&
       layer.id === 'water_surface_elevation'
     )
@@ -588,7 +591,7 @@ function MapComponent() {
   const fetchWaterDepth = useCallback(async (
     latlng: L.LatLng,
     map: L.Map,
-    layer: typeof WMS_LAYERS[number]
+    layer: typeof TOGGLEABLE_WMS_LAYERS[number]
   ) => {
     // Cancel previous request
     if (abortControllerRef.current) {
@@ -781,9 +784,6 @@ function MapComponent() {
           return
         }
 
-        // Only handle clicks if the point layer is visible
-        if (!layerVisibility['raster_geo_point']) return
-
         const map = e.target
         const size = map.getSize()
         const bounds = map.getBounds()
@@ -826,7 +826,7 @@ function MapComponent() {
         <CompareMap
           leftLayerId={comparisonLeftLayer}
           rightLayerId={comparisonRightLayer}
-          layersConfig={WMS_LAYERS}
+          layersConfig={TOGGLEABLE_WMS_LAYERS}
           onDisable={handleComparisonDisable}
         />
       ) : (
@@ -848,8 +848,8 @@ function MapComponent() {
             />
           ))}
 
-          {/* WMS Layers */}
-          {WMS_LAYERS.map((layer) =>
+          {/* Toggleable WMS Layers */}
+          {TOGGLEABLE_WMS_LAYERS.map((layer) =>
             layerVisibility[layer.id] ? (
               <WMSTileLayer
                 key={layer.id}
@@ -862,6 +862,17 @@ function MapComponent() {
               />
             ) : null
           )}
+
+          {/* Permanent Layer (Always Visible) */}
+          <WMSTileLayer
+            key={PERMANENT_LAYER.id}
+            url={PERMANENT_LAYER.url}
+            layers={PERMANENT_LAYER.layers}
+            format={PERMANENT_LAYER.format}
+            transparent={PERMANENT_LAYER.transparent}
+            version={PERMANENT_LAYER.version}
+            zIndex={PERMANENT_LAYER.zIndex}
+          />
 
           {/* Map Click Handler */}
           <MapClickHandler />
@@ -931,7 +942,7 @@ function MapComponent() {
         visible={showComparisonModal}
         onClose={() => setShowComparisonModal(false)}
         onEnable={handleComparisonEnable}
-        layers={WMS_LAYERS}
+        layers={TOGGLEABLE_WMS_LAYERS}
       />
 
       {/* Station Modal */}
