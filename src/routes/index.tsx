@@ -52,12 +52,11 @@ const LAYER_TYPES: Record<LayerType, LayerConfig> = {
 export const Route = createFileRoute('/')({
   component: HomePage,
 })
-
 // Toggleable layers (appear in LayerController)
 const TOGGLEABLE_WMS_LAYERS = [
   {
     id: 'water_surface_elevation',
-    name: 'Water Surface Elevation',
+    name: 'Coastal WSE in 12 hours',
     url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:rendered_noaa_wse',
     format: 'image/png',
@@ -67,7 +66,7 @@ const TOGGLEABLE_WMS_LAYERS = [
   },
   {
     id: 'water_surface_elevation_second_phase',
-    name: 'Water Surface Elevation 2nd Phase',
+    name: 'Coastal WSE in 24 hours',
     url: import.meta.env.VITE_GEOSERVER_BASE_URL,
     layers: 'flood-app:noaa_wse_second',
     format: 'image/png',
@@ -519,9 +518,9 @@ function MapComponent() {
 
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>(
     TOGGLEABLE_WMS_LAYERS.reduce(
-      (acc, layer) => ({
+      (acc, layer, index) => ({
         ...acc,
-        [layer.id]: true, // Both layers checked by default
+        [layer.id]: index === 0, // Only first layer visible by default
       }),
       {},
     ),
@@ -551,10 +550,17 @@ function MapComponent() {
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const handleLayerToggle = (layerId: string) => {
-    setLayerVisibility((prev) => ({
-      ...prev,
-      [layerId]: !prev[layerId],
-    }))
+    // Prevent deselecting the currently active layer
+    if (layerVisibility[layerId]) return
+
+    // Radio button behavior: only one layer visible at a time
+    setLayerVisibility((prev) => {
+      const newState: Record<string, boolean> = {}
+      for (const key of Object.keys(prev)) {
+        newState[key] = key === layerId
+      }
+      return newState
+    })
   }
 
   // Handle comparison enable
