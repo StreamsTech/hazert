@@ -40,3 +40,12 @@
   }
 
 }
+
+/* Leaflet map cursor overrides - must be outside @layer to override Leaflet's default styles */
+.leaflet-container {
+  cursor: default !important;
+}
+
+.leaflet-dragging .leaflet-container {
+  cursor: move !important;
+}
