@@ -12,6 +12,8 @@ import { ComparisonModal } from '../components/ui/ComparisonModal'
 import { CompareMap } from '../components/ui/CompareMap'
 import { FullscreenControl } from '../components/ui/FullscreenControl'
 import { CurrentLocationControl } from '../components/ui/CurrentLocationControl'
+import { NotificationControl } from '../components/ui/NotificationControl'
+import { ToastNotification } from '../components/ui/ToastNotification'
 import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
@@ -548,6 +550,11 @@ function MapComponent() {
   const [comparisonRightLayer, setComparisonRightLayer] = useState<string | null>(null)
   const [showComparisonModal, setShowComparisonModal] = useState(false)
 
+  // Notification toast state
+  const [showToast, setShowToast] = useState(false)
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
+  const [toastMessage, setToastMessage] = useState('')
+
   // Refs for pen mode
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -579,6 +586,13 @@ function MapComponent() {
     setComparisonLeftLayer(null)
     setComparisonRightLayer(null)
     console.log('🚫 Comparison mode disabled')
+  }
+
+  // Handle notification sent
+  const handleNotificationSent = (success: boolean, message: string) => {
+    setToastType(success ? 'success' : 'error')
+    setToastMessage(message)
+    setShowToast(true)
   }
 
   // Get highest z-index DEM raster layer (for pen mode depth queries)
@@ -944,6 +958,9 @@ function MapComponent() {
 
           {/* Current Location Control - Go to current location (positioned below Fullscreen button) */}
           <CurrentLocationControl />
+
+          {/* Notification Control - Send notification to all users (positioned below Current Location button) */}
+          <NotificationControl onNotificationSent={handleNotificationSent} />
         </MapContainer>
       )}
 
@@ -990,6 +1007,15 @@ function MapComponent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <ToastNotification
+          type={toastType}
+          message={toastMessage}
+          onClose={() => setShowToast(false)}
+        />
       )}
 
     </div>
