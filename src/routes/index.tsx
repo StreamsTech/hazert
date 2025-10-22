@@ -80,7 +80,7 @@ const TOGGLEABLE_WMS_LAYERS = [
   }
 ] as const
 
-// Always-visible layer (not in LayerController)
+// Geo Station Point layer (toggleable via checkbox in LayerController)
 const PERMANENT_LAYER = {
   id: 'raster_geo_point',
   name: 'NOAA Predictions',
@@ -175,6 +175,18 @@ function LayerController({
 
       {/* Checkbox Layers */}
       <div className="space-y-2">
+        {/* Geo Station Point (PERMANENT_LAYER) */}
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={checkboxLayerVisibility[PERMANENT_LAYER.id]}
+            onChange={() => onCheckboxLayerToggle(PERMANENT_LAYER.id)}
+            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+          />
+          <span className="text-sm text-gray-700">{PERMANENT_LAYER.name}</span>
+        </label>
+
+        {/* Other Checkbox Layers */}
         {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) => {
           // Layer center coordinates (from GetCapabilities)
           const layerCenters: Record<string, { lat: number; lon: number }> = {
@@ -615,16 +627,17 @@ function MapComponent() {
   // Base layer state management
   const [selectedBaseLayer, setSelectedBaseLayer] = useState<LayerType>('satellite')
 
-  // Checkbox layer visibility state
-  const [checkboxLayerVisibility, setCheckboxLayerVisibility] = useState<Record<string, boolean>>(
-    TOGGLEABLE_CHECKBOX_WMS_LAYERS.reduce(
+  // Checkbox layer visibility state (includes PERMANENT_LAYER + other checkbox layers)
+  const [checkboxLayerVisibility, setCheckboxLayerVisibility] = useState<Record<string, boolean>>({
+    [PERMANENT_LAYER.id]: true, // Geo Station Point checked by default
+    ...TOGGLEABLE_CHECKBOX_WMS_LAYERS.reduce(
       (acc, layer) => ({
         ...acc,
         [layer.id]: true, // All checked by default
       }),
       {},
     ),
-  )
+  })
 
   // Modal and station click state
   const [clickParams, setClickParams] = useState<StationClickParams | null>(null)
@@ -1008,23 +1021,25 @@ function MapComponent() {
             ) : null
           )}
 
-          {/* Permanent Layer (Always Visible) */}
-          <WMSTileLayer
-            key={PERMANENT_LAYER.id}
-            url={PERMANENT_LAYER.url}
-            layers={PERMANENT_LAYER.layers}
-            format={PERMANENT_LAYER.format}
-            transparent={PERMANENT_LAYER.transparent}
-            version={PERMANENT_LAYER.version}
-            zIndex={PERMANENT_LAYER.zIndex}
-            // Point layer optimizations (higher zoom OK for vector points)
-            maxZoom={21}
-            maxNativeZoom={21}
-            minZoom={8}
-            updateWhenIdle={true}
-            updateWhenZooming={false}
-            keepBuffer={1}
-          />
+          {/* Permanent Layer (Geo Station Point - Toggleable via checkbox) */}
+          {checkboxLayerVisibility[PERMANENT_LAYER.id] && (
+            <WMSTileLayer
+              key={PERMANENT_LAYER.id}
+              url={PERMANENT_LAYER.url}
+              layers={PERMANENT_LAYER.layers}
+              format={PERMANENT_LAYER.format}
+              transparent={PERMANENT_LAYER.transparent}
+              version={PERMANENT_LAYER.version}
+              zIndex={PERMANENT_LAYER.zIndex}
+              // Point layer optimizations (higher zoom OK for vector points)
+              maxZoom={21}
+              maxNativeZoom={21}
+              minZoom={8}
+              updateWhenIdle={true}
+              updateWhenZooming={false}
+              keepBuffer={1}
+            />
+          )}
 
           {/* Checkbox WMS Layers (Toggleable) */}
           {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) =>
