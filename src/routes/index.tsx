@@ -342,9 +342,9 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
     <div className={`fixed bottom-0 left-0 right-0 z-[2000] h-1/2 transition-transform duration-300 ease-in-out ${
       isVisible ? 'translate-y-0' : 'translate-y-full'
     }`}>
-      <div className="bg-white rounded-t-2xl shadow-2xl h-full overflow-hidden w-full">
+      <div className="bg-white rounded-t-2xl shadow-2xl h-full overflow-hidden w-full flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b gap-4">
+        <div className="flex items-center justify-between p-4 border-b gap-4 flex-shrink-0">
           {/* Left: Station Info */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
@@ -449,7 +449,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         </div>
 
         {/* Data Body - Table and Chart */}
-        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-0" style={{ height: 'calc(100% - 180px)' }}>
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 min-h-0">
           {viewMode === 'table' ? (
             /* Data Table */
             <div>
@@ -492,7 +492,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         </div>
 
         {/* Footer */}
-        <div className="py-1 px-4 border-t bg-gray-50">
+        <div className="py-2 px-4 border-t bg-gray-50 flex-shrink-0">
           <div className="flex justify-between items-center text-sm text-gray-600">
             <span>Last Seen: {data.timeStamp}</span>
             <span>{waterLevelData.length} records found</span>
