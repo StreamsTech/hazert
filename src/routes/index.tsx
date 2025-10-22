@@ -92,12 +92,51 @@ const PERMANENT_LAYER = {
   zIndex: 503,
 } as const
 
+const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
+  {
+    id: 'drainage_network',
+    name: 'Drainage Network',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    layers: 'flood-app:Drainage_Network',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 504, // Above PERMANENT_LAYER (503)
+  },
+  {
+    id: 'inland_flood_map',
+    name: 'Inland Flood Map',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    layers: 'flood-app:Inland_Flood_Map',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 505, // Above drainage_network (504)
+  },
+  {
+    id: 'watershades',
+    name: 'Watersheds',
+    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    layers: 'flood-app:Watersheds',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 506, // Above inland_flood_map (505)
+  },
+] as const
+
 function LayerController({
   layerVisibility,
   onLayerToggle,
+  checkboxLayerVisibility,
+  onCheckboxLayerToggle,
+  onZoomToLayer,
 }: {
   layerVisibility: Record<string, boolean>
   onLayerToggle: (layerId: string) => void
+  checkboxLayerVisibility: Record<string, boolean>
+  onCheckboxLayerToggle: (layerId: string) => void
+  onZoomToLayer?: (lat: number, lon: number, zoom: number) => void
 }) {
   // Get currently selected layer
   const selectedLayerId = Object.keys(layerVisibility).find(
@@ -106,7 +145,7 @@ function LayerController({
 
   return (
     <div
-      className="layer-controller-prevent-click absolute bottom-20 left-4 bg-white p-4 rounded-md shadow-md z-[1000] min-w-[220px] min-h-[120px]"
+      className="layer-controller-prevent-click absolute bottom-20 left-4 bg-white p-4 rounded-md shadow-md z-[1000] min-w-[220px]"
       onClick={(e) => {
         // Stop click propagation to prevent map click handler from firing
         e.stopPropagation()
@@ -117,6 +156,8 @@ function LayerController({
       }}
     >
       <h3 className="font-medium mb-3 text-sm text-gray-800">Layers</h3>
+
+      {/* WMS Layer Dropdown */}
       <select
         value={selectedLayerId}
         onChange={(e) => onLayerToggle(e.target.value)}
@@ -128,6 +169,44 @@ function LayerController({
           </option>
         ))}
       </select>
+
+      {/* Divider */}
+      <hr className="my-3 border-gray-200" />
+
+      {/* Checkbox Layers */}
+      <div className="space-y-2">
+        {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) => {
+          // Layer center coordinates (from GetCapabilities)
+          const layerCenters: Record<string, { lat: number; lon: number }> = {
+            'drainage_network': { lat: 21.614, lon: 39.322 },
+            'inland_flood_map': { lat: 21.547, lon: 39.220 },
+            'watershades': { lat: 21.614, lon: 39.322 }, // Assume same as drainage
+          }
+
+          return (
+            <div key={layer.id} className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer flex-1">
+                <input
+                  type="checkbox"
+                  checked={checkboxLayerVisibility[layer.id]}
+                  onChange={() => onCheckboxLayerToggle(layer.id)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-700">{layer.name}</span>
+              </label>
+              {onZoomToLayer && layerCenters[layer.id] && (
+                <button
+                  onClick={() => onZoomToLayer(layerCenters[layer.id].lat, layerCenters[layer.id].lon, 12)}
+                  className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded"
+                  title="Zoom to layer"
+                >
+                  📍
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -536,6 +615,17 @@ function MapComponent() {
   // Base layer state management
   const [selectedBaseLayer, setSelectedBaseLayer] = useState<LayerType>('satellite')
 
+  // Checkbox layer visibility state
+  const [checkboxLayerVisibility, setCheckboxLayerVisibility] = useState<Record<string, boolean>>(
+    TOGGLEABLE_CHECKBOX_WMS_LAYERS.reduce(
+      (acc, layer) => ({
+        ...acc,
+        [layer.id]: true, // All checked by default
+      }),
+      {},
+    ),
+  )
+
   // Modal and station click state
   const [clickParams, setClickParams] = useState<StationClickParams | null>(null)
   const [selectedStation, setSelectedStation] = useState<StationClickResponse | null>(null)
@@ -558,6 +648,9 @@ function MapComponent() {
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [toastMessage, setToastMessage] = useState('')
 
+  // Map ref for programmatic control
+  const mapRef = useRef<L.Map | null>(null)
+
   // Refs for pen mode
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -573,6 +666,14 @@ function MapComponent() {
       }
       return newState
     })
+  }
+
+  // Handle checkbox layer toggle
+  const handleCheckboxLayerToggle = (layerId: string) => {
+    setCheckboxLayerVisibility((prev) => ({
+      ...prev,
+      [layerId]: !prev[layerId], // Simple toggle behavior
+    }))
   }
 
   // Handle comparison enable
@@ -597,6 +698,13 @@ function MapComponent() {
     setToastMessage(message)
     setShowToast(true)
   }
+
+  // Handle zoom to layer location
+  const handleZoomToLayer = useCallback((lat: number, lon: number, zoom: number) => {
+    if (mapRef.current) {
+      mapRef.current.setView([lat, lon], zoom)
+    }
+  }, [])
 
   // Get highest z-index DEM raster layer (for pen mode depth queries)
   const getActiveLayer = useCallback(() => {
@@ -856,6 +964,7 @@ function MapComponent() {
       ) : (
         // Normal Mode: Show MapContainer with all controls
         <MapContainer
+          ref={mapRef}
           center={center}
           zoom={zoom}
           maxZoom={21}
@@ -917,6 +1026,29 @@ function MapComponent() {
             keepBuffer={1}
           />
 
+          {/* Checkbox WMS Layers (Toggleable) */}
+          {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) =>
+            checkboxLayerVisibility[layer.id] ? (
+              <WMSTileLayer
+                key={layer.id}
+                url={layer.url}
+                layers={layer.layers}
+                format={layer.format}
+                transparent={layer.transparent}
+                version={layer.version}
+                zIndex={layer.zIndex}
+                // Tile loading optimizations
+                maxZoom={21}
+                maxNativeZoom={21}
+                minZoom={8}
+                updateWhenIdle={true}
+                updateWhenZooming={false}
+                keepBuffer={1}
+                tileSize={256}
+              />
+            ) : null
+          )}
+
           {/* Map Click Handler */}
           <MapClickHandler />
 
@@ -924,6 +1056,9 @@ function MapComponent() {
           <LayerController
             layerVisibility={layerVisibility}
             onLayerToggle={handleLayerToggle}
+            checkboxLayerVisibility={checkboxLayerVisibility}
+            onCheckboxLayerToggle={handleCheckboxLayerToggle}
+            onZoomToLayer={handleZoomToLayer}
           />
 
           {/* Base Layer Switcher (bottom-right) - Hidden in comparison mode */}
