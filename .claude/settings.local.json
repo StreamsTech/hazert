@@ -15,7 +15,8 @@
       "Bash(pnpm list react-leaflet react-leaflet-fullscreen leaflet.locatecontrol leaflet-geosearch)",
       "Bash(pnpm remove react-leaflet-fullscreen)",
       "Bash(pnpm remove leaflet.locatecontrol)",
-      "Bash(pnpm remove leaflet-geosearch)"
+      "Bash(pnpm remove leaflet-geosearch)",
+      "SlashCommand(/commit)"
     ],
     "deny": [],
     "ask": []

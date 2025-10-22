@@ -43,7 +43,6 @@ src/
 ├── components/
 │   ├── ui/
 │   │   ├── CompareMap.tsx              # Side-by-side map comparison
-│   │   ├── BrushChart.tsx              # ApexCharts brush/zoom component
 │   │   └── TideMonitoringSiteCategories.tsx  # Station filtering sidebar
 │   ├── TideChart.jsx                   # Main tide data chart component
 │   ├── DefaultCatchBoundary.tsx        # Error boundary component
@@ -162,10 +161,6 @@ const WMS_LAYERS = [
   - Smooth monotonic cubic curves
   - Interactive tooltips and zoom
   - Loading states
-
-#### `src/components/ui/BrushChart.tsx` - Advanced Charting
-- **Purpose**: Brush/zoom chart component with main + navigator charts
-- **Features**: Connected brush selection, gradient fills, synchronized zoom
 
 ### API & Mock Data
 

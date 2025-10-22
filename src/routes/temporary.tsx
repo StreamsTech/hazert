@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import BrushChart from '~/components/ui/BrushChart'
+import {WaterLevelChart} from "~/components/ui/WaterLevelChart";
 // import TideMonitoringSiteCategories from '~/components/ui/TideMonitoringSiteCategories'
 
 export const Route = createFileRoute('/temporary')({
@@ -7,5 +7,8 @@ export const Route = createFileRoute('/temporary')({
 })
 
 function RouteComponent() {
-  return <div className='w-1/3 h-2/3 bg-white'><BrushChart/></div>
+  // @ts-ignore
+  return <div className=' bg-white'><WaterLevelChart
+      title="Custom Title"
+  /></div>
 }
