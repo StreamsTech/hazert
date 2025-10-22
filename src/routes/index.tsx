@@ -99,9 +99,14 @@ function LayerController({
   layerVisibility: Record<string, boolean>
   onLayerToggle: (layerId: string) => void
 }) {
+  // Get currently selected layer
+  const selectedLayerId = Object.keys(layerVisibility).find(
+    (layerId) => layerVisibility[layerId]
+  ) || TOGGLEABLE_WMS_LAYERS[0].id
+
   return (
     <div
-      className="layer-controller-prevent-click absolute bottom-4 left-4 bg-white p-3 rounded-md shadow-md z-[1000] min-w-[200px]"
+      className="layer-controller-prevent-click absolute bottom-20 left-4 bg-white p-4 rounded-md shadow-md z-[1000] min-w-[220px] min-h-[180px]"
       onClick={(e) => {
         // Stop click propagation to prevent map click handler from firing
         e.stopPropagation()
@@ -111,20 +116,18 @@ function LayerController({
         e.stopPropagation()
       }}
     >
-      <h3 className="font-medium mb-2 text-sm text-gray-800">Layers</h3>
-      <div className="space-y-2">
+      <h3 className="font-medium mb-3 text-sm text-gray-800">Layers</h3>
+      <select
+        value={selectedLayerId}
+        onChange={(e) => onLayerToggle(e.target.value)}
+        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 cursor-pointer shadow-sm"
+      >
         {TOGGLEABLE_WMS_LAYERS.map((layer) => (
-          <label key={layer.id} className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={layerVisibility[layer.id]}
-              onChange={() => onLayerToggle(layer.id)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">{layer.name}</span>
-          </label>
+          <option key={layer.id} value={layer.id}>
+            {layer.name}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   )
 }
