@@ -106,7 +106,7 @@ function LayerController({
 
   return (
     <div
-      className="layer-controller-prevent-click absolute bottom-20 left-4 bg-white p-4 rounded-md shadow-md z-[1000] min-w-[220px] min-h-[180px]"
+      className="layer-controller-prevent-click absolute bottom-20 left-4 bg-white p-4 rounded-md shadow-md z-[1000] min-w-[220px] min-h-[120px]"
       onClick={(e) => {
         // Stop click propagation to prevent map click handler from firing
         e.stopPropagation()
@@ -858,6 +858,8 @@ function MapComponent() {
         <MapContainer
           center={center}
           zoom={zoom}
+          maxZoom={21}
+          worldCopyJump={true}
           className={`h-full w-full ${penModeActive ? 'cursor-crosshair' : ''}`}
           zoomControl={true}
         >
@@ -868,7 +870,9 @@ function MapComponent() {
               url={layer.url}
               attribution="© Google Maps"
               opacity={layer.opacity}
-              maxZoom={20}
+              maxZoom={21}
+              updateWhenIdle={true}
+              keepBuffer={2}
             />
           ))}
 
@@ -883,6 +887,14 @@ function MapComponent() {
                 transparent={layer.transparent}
                 version={layer.version}
                 zIndex={layer.zIndex}
+                // Tile loading optimizations
+                maxZoom={21}
+                maxNativeZoom={21}
+                minZoom={8}
+                updateWhenIdle={true}
+                updateWhenZooming={false}
+                keepBuffer={1}
+                tileSize={256}
               />
             ) : null
           )}
@@ -896,6 +908,13 @@ function MapComponent() {
             transparent={PERMANENT_LAYER.transparent}
             version={PERMANENT_LAYER.version}
             zIndex={PERMANENT_LAYER.zIndex}
+            // Point layer optimizations (higher zoom OK for vector points)
+            maxZoom={21}
+            maxNativeZoom={21}
+            minZoom={8}
+            updateWhenIdle={true}
+            updateWhenZooming={false}
+            keepBuffer={1}
           />
 
           {/* Map Click Handler */}

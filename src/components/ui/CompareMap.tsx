@@ -259,7 +259,7 @@ export const CompareMap: React.FC<CompareMapProps> = ({
             url={layer.url}
             attribution="© Google Maps"
             opacity={layer.opacity}
-            maxZoom={20}
+            maxZoom={21}
           />
         ))}
       </MapContainer>

@@ -231,7 +231,7 @@ function MapComponent() {
           <TileLayer
             url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
             attribution="© Google Maps"
-            maxZoom={20}
+            maxZoom={21}
           />
 
           {/* WMS Layers */}
