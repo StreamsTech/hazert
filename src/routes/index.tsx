@@ -145,7 +145,7 @@ function LayerController({
 
   return (
     <div
-      className="layer-controller-prevent-click absolute bottom-20 left-4 bg-white p-4 rounded-md shadow-md z-[1000] min-w-[220px]"
+      className="layer-controller-prevent-click absolute bottom-20 left-4 z-[1000] min-w-[220px] flex flex-col gap-3"
       onClick={(e) => {
         // Stop click propagation to prevent map click handler from firing
         e.stopPropagation()
@@ -155,69 +155,71 @@ function LayerController({
         e.stopPropagation()
       }}
     >
-      <h3 className="font-medium mb-3 text-sm text-gray-800">Layers</h3>
+      {/* Container 1: Title + Dropdown */}
+      <div className="bg-white p-4 rounded-md shadow-md">
+        <h3 className="font-medium mb-3 text-sm text-gray-800">Coastal Flood Map</h3>
 
-      {/* WMS Layer Dropdown */}
-      <select
-        value={selectedLayerId}
-        onChange={(e) => onLayerToggle(e.target.value)}
-        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 cursor-pointer shadow-sm"
-      >
-        {TOGGLEABLE_WMS_LAYERS.map((layer) => (
-          <option key={layer.id} value={layer.id}>
-            {layer.name}
-          </option>
-        ))}
-      </select>
+        {/* WMS Layer Dropdown */}
+        <select
+          value={selectedLayerId}
+          onChange={(e) => onLayerToggle(e.target.value)}
+          className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 cursor-pointer shadow-sm"
+        >
+          {TOGGLEABLE_WMS_LAYERS.map((layer) => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {/* Divider */}
-      <hr className="my-3 border-gray-200" />
+      {/* Container 2: Checkbox Layers */}
+      <div className="bg-white p-4 rounded-md shadow-md">
+        <div className="space-y-2">
+          {/* Geo Station Point (PERMANENT_LAYER) */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={checkboxLayerVisibility[PERMANENT_LAYER.id]}
+              onChange={() => onCheckboxLayerToggle(PERMANENT_LAYER.id)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <span className="text-sm text-gray-700">{PERMANENT_LAYER.name}</span>
+          </label>
 
-      {/* Checkbox Layers */}
-      <div className="space-y-2">
-        {/* Geo Station Point (PERMANENT_LAYER) */}
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={checkboxLayerVisibility[PERMANENT_LAYER.id]}
-            onChange={() => onCheckboxLayerToggle(PERMANENT_LAYER.id)}
-            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-          />
-          <span className="text-sm text-gray-700">{PERMANENT_LAYER.name}</span>
-        </label>
+          {/* Other Checkbox Layers */}
+          {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) => {
+            // Layer center coordinates (from GetCapabilities)
+            const layerCenters: Record<string, { lat: number; lon: number }> = {
+              'drainage_network': { lat: 21.614, lon: 39.322 },
+              'inland_flood_map': { lat: 21.547, lon: 39.220 },
+              'watershades': { lat: 21.614, lon: 39.322 }, // Assume same as drainage
+            }
 
-        {/* Other Checkbox Layers */}
-        {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) => {
-          // Layer center coordinates (from GetCapabilities)
-          const layerCenters: Record<string, { lat: number; lon: number }> = {
-            'drainage_network': { lat: 21.614, lon: 39.322 },
-            'inland_flood_map': { lat: 21.547, lon: 39.220 },
-            'watershades': { lat: 21.614, lon: 39.322 }, // Assume same as drainage
-          }
-
-          return (
-            <div key={layer.id} className="flex items-center gap-2">
-              <label className="flex items-center gap-2 cursor-pointer flex-1">
-                <input
-                  type="checkbox"
-                  checked={checkboxLayerVisibility[layer.id]}
-                  onChange={() => onCheckboxLayerToggle(layer.id)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <span className="text-sm text-gray-700">{layer.name}</span>
-              </label>
-              {onZoomToLayer && layerCenters[layer.id] && (
-                <button
-                  onClick={() => onZoomToLayer(layerCenters[layer.id].lat, layerCenters[layer.id].lon, 12)}
-                  className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded"
-                  title="Zoom to layer"
-                >
-                  📍
-                </button>
-              )}
-            </div>
-          )
-        })}
+            return (
+              <div key={layer.id} className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    checked={checkboxLayerVisibility[layer.id]}
+                    onChange={() => onCheckboxLayerToggle(layer.id)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-700">{layer.name}</span>
+                </label>
+                {onZoomToLayer && layerCenters[layer.id] && (
+                  <button
+                    onClick={() => onZoomToLayer(layerCenters[layer.id].lat, layerCenters[layer.id].lon, 12)}
+                    className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded"
+                    title="Zoom to layer"
+                  >
+                    📍
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
