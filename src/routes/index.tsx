@@ -125,6 +125,22 @@ const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
   },
 ] as const
 
+// Queryable layers configuration for pen mode depth queries
+const QUERYABLE_LAYERS_CONFIG: Record<string, { geoserverLayer: string; source: 'dropdown' | 'checkbox' }> = {
+  'water_surface_elevation': {
+    geoserverLayer: 'flood-app:rendered_noaa_wse',
+    source: 'dropdown'
+  },
+  'water_surface_elevation_second_phase': {
+    geoserverLayer: 'flood-app:noaa_wse_second',
+    source: 'dropdown'
+  },
+  'inland_flood_map': {
+    geoserverLayer: 'flood-app:Inland_Flood_Map',
+    source: 'checkbox'
+  }
+}
+
 function LayerController({
   layerVisibility,
   onLayerToggle,
@@ -637,9 +653,6 @@ function MapComponent() {
     ),
   )
 
-  // Calculate if pen mode should be disabled (no WMS layer selected)
-  const isPenModeDisabled = !Object.values(layerVisibility).some(visible => visible)
-
   // Base layer state management
   const [selectedBaseLayer, setSelectedBaseLayer] = useState<LayerType>('satellite')
 
@@ -654,6 +667,11 @@ function MapComponent() {
       {},
     ),
   })
+
+  // Calculate if pen mode should be disabled (checks both dropdown and checkbox queryable layers)
+  const hasDropdownLayer = Object.values(layerVisibility).some(visible => visible)
+  const hasInlandFloodMap = checkboxLayerVisibility['inland_flood_map']
+  const isPenModeDisabled = !hasDropdownLayer && !hasInlandFloodMap
 
   // Modal and station click state
   const [clickParams, setClickParams] = useState<StationClickParams | null>(null)
@@ -757,11 +775,33 @@ function MapComponent() {
     )
   }, [layerVisibility])
 
-  // Fetch water depth from GetFeatureInfo API
+  // Get all visible queryable layers (for multi-layer pen mode depth queries)
+  const getVisibleQueryableLayers = useCallback(() => {
+    const visibleLayers: string[] = []
+
+    // Loop through all queryable layers
+    Object.keys(QUERYABLE_LAYERS_CONFIG).forEach(layerId => {
+      const config = QUERYABLE_LAYERS_CONFIG[layerId]
+
+      // Check visibility based on source (dropdown or checkbox)
+      const isVisible = config.source === 'dropdown'
+        ? layerVisibility[layerId]
+        : checkboxLayerVisibility[layerId]
+
+      // If visible, add GeoServer layer name to array
+      if (isVisible) {
+        visibleLayers.push(config.geoserverLayer)
+      }
+    })
+
+    return visibleLayers
+  }, [layerVisibility, checkboxLayerVisibility])
+
+  // Fetch water depth from GetFeatureInfo API (supports multiple layers)
   const fetchWaterDepth = useCallback(async (
     latlng: L.LatLng,
     map: L.Map,
-    layer: typeof TOGGLEABLE_WMS_LAYERS[number]
+    layerNames: string[]
   ) => {
     // Cancel previous request
     if (abortControllerRef.current) {
@@ -794,13 +834,16 @@ function MapComponent() {
 
       const bbox = `${bboxMinX},${bboxMinY},${bboxMaxX},${bboxMaxY}`
 
+      // Build comma-separated layer string
+      const layerString = layerNames.join(',')
+
       // Debug logging
       console.log('🎯 Pen Mode Debug:', {
         cursor: { lat: latlng.lat, lng: latlng.lng },
         bbox,
         bboxParsed: { west: bboxMinX, south: bboxMinY, east: bboxMaxX, north: bboxMaxY },
         pixelSize: { degPerPixelX, degPerPixelY },
-        layer: layer.layers
+        layers: layerString
       })
 
       // Build params matching the working example format
@@ -810,8 +853,8 @@ function MapComponent() {
         REQUEST: 'GetFeatureInfo',
         FORMAT: 'image/jpeg',
         TRANSPARENT: 'true',
-        QUERY_LAYERS: layer.layers,
-        LAYERS: layer.layers,
+        QUERY_LAYERS: layerString,
+        LAYERS: layerString,
         exceptions: 'application/vnd.ogc.se_inimage',
         INFO_FORMAT: 'application/json',
         FEATURE_COUNT: '50',
@@ -838,11 +881,18 @@ function MapComponent() {
 
       const data = await response.json()
 
+      // Loop through features array to find first non-null GRAY_INDEX
       if (data.features && data.features.length > 0) {
-        const grayIndex = data.features[0].properties?.GRAY_INDEX
-        if (grayIndex !== undefined && grayIndex !== null) {
-          setMarkerDepth(grayIndex)
-        } else {
+        let foundDepth = false
+        for (const feature of data.features) {
+          const grayIndex = feature.properties?.GRAY_INDEX
+          if (grayIndex !== undefined && grayIndex !== null) {
+            setMarkerDepth(grayIndex)
+            foundDepth = true
+            break // Found first valid value, stop looking
+          }
+        }
+        if (!foundDepth) {
           setMarkerDepth(null)
         }
       } else {
@@ -864,13 +914,13 @@ function MapComponent() {
 
     console.log('🖱️ Pen mode click detected:', { lat: e.latlng.lat, lng: e.latlng.lng })
 
-    const activeLayer = getActiveLayer()
-    if (!activeLayer) {
-      console.log('⚠️ No active layer found for pen mode')
+    const visibleQueryableLayers = getVisibleQueryableLayers()
+    if (visibleQueryableLayers.length === 0) {
+      console.log('⚠️ No queryable layers visible for pen mode')
       return
     }
 
-    console.log('✅ Active layer:', activeLayer.name)
+    console.log('✅ Queryable layers:', visibleQueryableLayers)
 
     const map = e.target
 
@@ -878,9 +928,9 @@ function MapComponent() {
     setMarkerPosition(e.latlng)
     setMarkerDepth(null) // Reset depth when placing new marker
 
-    // Fetch water depth
-    fetchWaterDepth(e.latlng, map, activeLayer)
-  }, [penModeActive, getActiveLayer, fetchWaterDepth])
+    // Fetch water depth from all visible queryable layers
+    fetchWaterDepth(e.latlng, map, visibleQueryableLayers)
+  }, [penModeActive, getVisibleQueryableLayers, fetchWaterDepth])
 
   // Cleanup on unmount or pen mode toggle
   useEffect(() => {
@@ -893,15 +943,15 @@ function MapComponent() {
     }
   }, [penModeActive])
 
-  // Auto-disable pen mode when "none" is selected
+  // Auto-disable pen mode when no queryable layers are visible
   useEffect(() => {
-    const hasVisibleLayer = Object.values(layerVisibility).some(visible => visible)
-    if (!hasVisibleLayer && penModeActive) {
+    const visibleQueryableLayers = getVisibleQueryableLayers()
+    if (visibleQueryableLayers.length === 0 && penModeActive) {
       setPenModeActive(false)
       setMarkerPosition(null)
       setMarkerDepth(null)
     }
-  }, [layerVisibility, penModeActive])
+  }, [layerVisibility, checkboxLayerVisibility, penModeActive, getVisibleQueryableLayers])
 
   // Create custom pin icon
   const [pinIconInstance, setPinIconInstance] = useState<L.Icon | null>(null)
