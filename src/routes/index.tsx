@@ -83,7 +83,7 @@ const TOGGLEABLE_WMS_LAYERS = [
 // Geo Station Point layer (toggleable via checkbox in LayerController)
 const PERMANENT_LAYER = {
   id: 'raster_geo_point',
-  name: 'NOAA Predictions',
+  name: 'NOAA Stations',
   url: import.meta.env.VITE_GEOSERVER_BASE_URL,
   layers: 'flood-app:NOAA_Pred_Sts_Prj', // flood-app:noaa_predictions
   format: 'image/png',
@@ -141,7 +141,7 @@ function LayerController({
   // Get currently selected layer
   const selectedLayerId = Object.keys(layerVisibility).find(
     (layerId) => layerVisibility[layerId]
-  ) || TOGGLEABLE_WMS_LAYERS[0].id
+  ) || 'none'
 
   return (
     <div
@@ -165,6 +165,7 @@ function LayerController({
           onChange={(e) => onLayerToggle(e.target.value)}
           className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 cursor-pointer shadow-sm"
         >
+          <option value="none">No Data</option>
           {TOGGLEABLE_WMS_LAYERS.map((layer) => (
             <option key={layer.id} value={layer.id}>
               {layer.name}
@@ -213,7 +214,7 @@ function LayerController({
                     className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded"
                     title="Zoom to layer"
                   >
-                    📍
+                    ➜
                   </button>
                 )}
               </div>
@@ -274,22 +275,32 @@ const LayerSwitcher: React.FC<LayerSwitcherProps> = ({ selectedLayer, onLayerCha
 interface PenModeToggleProps {
   isActive: boolean
   onToggle: () => void
+  disabled?: boolean
 }
 
-const PenModeToggle: React.FC<PenModeToggleProps> = ({ isActive, onToggle }) => (
+const PenModeToggle: React.FC<PenModeToggleProps> = ({ isActive, onToggle, disabled = false }) => (
   <div
     className="pen-toggle-prevent-click absolute top-20 right-4 z-[1001]"
     onClick={(e) => e.stopPropagation()}
     onMouseDown={(e) => e.stopPropagation()}
   >
     <button
-      onClick={onToggle}
+      onClick={disabled ? undefined : onToggle}
+      disabled={disabled}
       className={`backdrop-blur-sm rounded-lg shadow-lg p-3 transition-all duration-200 ${
-        isActive
+        disabled
+          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          : isActive
           ? 'bg-blue-500 hover:bg-blue-600 text-white'
           : 'bg-white/95 hover:bg-white text-gray-700'
       }`}
-      title={isActive ? 'Disable Pen Mode' : 'Enable Pen Mode'}
+      title={
+        disabled
+          ? 'Select a WMS layer to enable pen mode'
+          : isActive
+          ? 'Disable Pen Mode'
+          : 'Enable Pen Mode'
+      }
     >
       <Pen className="w-5 h-5" />
     </button>
@@ -626,6 +637,9 @@ function MapComponent() {
     ),
   )
 
+  // Calculate if pen mode should be disabled (no WMS layer selected)
+  const isPenModeDisabled = !Object.values(layerVisibility).some(visible => visible)
+
   // Base layer state management
   const [selectedBaseLayer, setSelectedBaseLayer] = useState<LayerType>('satellite')
 
@@ -670,8 +684,17 @@ function MapComponent() {
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const handleLayerToggle = (layerId: string) => {
-    // Prevent deselecting the currently active layer
-    if (layerVisibility[layerId]) return
+    // Handle "none" selection - hide all layers
+    if (layerId === 'none') {
+      setLayerVisibility((prev) => {
+        const newState: Record<string, boolean> = {}
+        for (const key of Object.keys(prev)) {
+          newState[key] = false
+        }
+        return newState
+      })
+      return
+    }
 
     // Radio button behavior: only one layer visible at a time
     setLayerVisibility((prev) => {
@@ -869,6 +892,16 @@ function MapComponent() {
       setMarkerDepth(null)
     }
   }, [penModeActive])
+
+  // Auto-disable pen mode when "none" is selected
+  useEffect(() => {
+    const hasVisibleLayer = Object.values(layerVisibility).some(visible => visible)
+    if (!hasVisibleLayer && penModeActive) {
+      setPenModeActive(false)
+      setMarkerPosition(null)
+      setMarkerDepth(null)
+    }
+  }, [layerVisibility, penModeActive])
 
   // Create custom pin icon
   const [pinIconInstance, setPinIconInstance] = useState<L.Icon | null>(null)
@@ -1087,6 +1120,7 @@ function MapComponent() {
           {/* Pen Mode Toggle Button */}
           <PenModeToggle
             isActive={penModeActive}
+            disabled={isPenModeDisabled}
             onToggle={() => {
               setPenModeActive(!penModeActive)
               if (penModeActive) {
