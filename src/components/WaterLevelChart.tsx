@@ -116,10 +116,10 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
     },
     yaxis: {
       title: {
-        text: 'Water Level (m)'
+        text: 'Water Level (feet)'
       },
       labels: {
-        formatter: (value: number) => `${value.toFixed(2)} m`
+        formatter: (value: number) => `${value.toFixed(2)} feet`
       }
     },
     grid: {
@@ -140,13 +140,18 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
     tooltip: {
       shared: true,
       intersect: false,
+      theme: 'dark',
+      style: {
+        fontSize: '12px',
+        fontFamily: 'inherit'
+      },
       x: {
         format: 'yyyy-MM-dd HH:mm'
       },
       y: {
         formatter: (value: number, { seriesIndex }: { seriesIndex: number }) => {
           const type = seriesIndex === 0 ? 'Historical' : 'Predicted'
-          return `${value.toFixed(2)} m (${type})`
+          return `${value.toFixed(2)} feet (${type})`
         }
       }
     },
