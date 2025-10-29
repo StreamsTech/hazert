@@ -682,6 +682,7 @@ function MapComponent() {
   const [penModeActive, setPenModeActive] = useState(false)
   const [markerPosition, setMarkerPosition] = useState<L.LatLng | null>(null)
   const [markerDepth, setMarkerDepth] = useState<number | null>(null)
+  const [markerUnit, setMarkerUnit] = useState<string>('feet')
   const [isLoadingDepth, setIsLoadingDepth] = useState(false)
 
   // Comparison mode state
@@ -856,7 +857,7 @@ function MapComponent() {
         QUERY_LAYERS: layerString,
         LAYERS: layerString,
         exceptions: 'application/vnd.ogc.se_inimage',
-        INFO_FORMAT: 'application/json',
+        INFO_FORMAT: 'text/html',
         FEATURE_COUNT: '50',
         X: '50', // Center of 101x101 box
         Y: '50', // Center of 101x101 box
@@ -879,29 +880,77 @@ function MapComponent() {
 
       if (!response.ok) throw new Error('API request failed')
 
-      const data = await response.json()
+      // Parse HTML response to extract JSON
+      const htmlText = await response.text()
+      console.log('📄 Raw HTML response:', htmlText.substring(0, 200))
+
+      // Extract body content first (to skip CSS in <style> tags)
+      const bodyStart = htmlText.indexOf('<body>')
+      const bodyEnd = htmlText.indexOf('</body>')
+
+      if (bodyStart === -1 || bodyEnd === -1) {
+        console.log('❌ No <body> tag found in HTML')
+        setMarkerDepth(null)
+        setMarkerUnit('feet')
+        return
+      }
+
+      const bodyContent = htmlText.substring(bodyStart + 6, bodyEnd) // +6 to skip '<body>'
+      console.log('📦 Body content:', bodyContent.substring(0, 100))
+
+      // Now search for JSON braces within body content only
+      const firstBrace = bodyContent.indexOf('{')
+      const lastBrace = bodyContent.lastIndexOf('}')
+      console.log('🔍 Brace positions in body:', { firstBrace, lastBrace })
+
+      // If no JSON found in body, show "No data"
+      if (firstBrace === -1 || lastBrace === -1) {
+        console.log('❌ No JSON braces found in body')
+        setMarkerDepth(null)
+        setMarkerUnit('feet')
+        return
+      }
+
+      const jsonString = bodyContent.substring(firstBrace, lastBrace + 1)
+      console.log('📋 Extracted JSON string:', jsonString.substring(0, 100))
+
+      const data = JSON.parse(jsonString)
+      console.log('✅ Parsed JSON data:', data)
 
       // Loop through features array to find first non-null GRAY_INDEX
       if (data.features && data.features.length > 0) {
+        console.log(`🔢 Found ${data.features.length} features`)
         let foundDepth = false
         for (const feature of data.features) {
           const grayIndex = feature.properties?.GRAY_INDEX
-          if (grayIndex !== undefined && grayIndex !== null) {
+          const unit = feature.properties?.unit || 'feet'
+          console.log('🎯 Feature properties:', { grayIndex, unit, properties: feature.properties })
+          // Check if valid: not null/undefined AND not negative (negative = NoData sentinel)
+          if (grayIndex !== undefined && grayIndex !== null && grayIndex >= 0) {
+            console.log('✅ Setting depth:', grayIndex, unit)
             setMarkerDepth(grayIndex)
+            setMarkerUnit(unit)
             foundDepth = true
             break // Found first valid value, stop looking
+          } else if (grayIndex < 0) {
+            console.log('⚠️ Negative GRAY_INDEX (NoData sentinel):', grayIndex)
           }
         }
         if (!foundDepth) {
+          console.log('⚠️ No valid GRAY_INDEX found')
           setMarkerDepth(null)
+          setMarkerUnit('feet')
         }
       } else {
+        console.log('⚠️ No features in response')
         setMarkerDepth(null)
+        setMarkerUnit('feet')
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error('Error fetching water depth:', error)
         setMarkerDepth(null)
+        setMarkerUnit('feet')
       }
     } finally {
       setIsLoadingDepth(false)
@@ -940,6 +989,7 @@ function MapComponent() {
       }
       setMarkerPosition(null)
       setMarkerDepth(null)
+      setMarkerUnit('feet')
     }
   }, [penModeActive])
 
@@ -950,6 +1000,7 @@ function MapComponent() {
       setPenModeActive(false)
       setMarkerPosition(null)
       setMarkerDepth(null)
+      setMarkerUnit('feet')
     }
   }, [layerVisibility, checkboxLayerVisibility, penModeActive, getVisibleQueryableLayers])
 
@@ -1175,6 +1226,7 @@ function MapComponent() {
               setPenModeActive(!penModeActive)
               if (penModeActive) {
                 setMarkerDepth(null)
+                setMarkerUnit('feet')
               }
             }}
           />
@@ -1204,7 +1256,7 @@ function MapComponent() {
                     </div>
                   ) : markerDepth !== null ? (
                     <div className="text-base font-semibold text-gray-900">
-                      {markerDepth.toFixed(2)} feet
+                      {markerDepth.toFixed(2)} {markerUnit}
                     </div>
                   ) : (
                     <div className="text-sm text-gray-400">No data</div>
