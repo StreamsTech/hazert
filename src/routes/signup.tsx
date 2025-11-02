@@ -28,7 +28,7 @@ interface FormErrors {
 
 function SignupPage() {
   const navigate = useNavigate()
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, login, fetchAndStoreUserInfo } = useAuth()
 
   // Redirect to home if already authenticated
   useEffect(() => {
@@ -163,8 +163,11 @@ function SignupPage() {
 
       const response = await signupUser(signupData)
 
-      // Update auth context and localStorage
+      // Update auth context with token
       login(response.access_token, response.user)
+
+      // Fetch and store user info from /me endpoint (ensures consistency)
+      await fetchAndStoreUserInfo(response.access_token)
 
       // Redirect to main page
       navigate({ to: '/' })

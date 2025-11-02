@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
 import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup, ZoomControl } from 'react-leaflet'
-import { Layers, X, Download, Table, Pen, LineChart } from 'lucide-react'
+import { Layers, X, Download, Table, Pen, LineChart, Menu } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
 import type { StationClickParams, StationClickResponse, WaterLevelPrediction, WaterLevelObservation } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
@@ -14,6 +14,9 @@ import { FullscreenControl } from '../components/ui/FullscreenControl'
 import { CurrentLocationControl } from '../components/ui/CurrentLocationControl'
 import { NotificationControl } from '../components/ui/NotificationControl'
 import { ToastNotification } from '../components/ui/ToastNotification'
+import { Drawer } from '../components/ui/Drawer'
+import { DrawerContent } from '../components/ui/DrawerContent'
+import { useAuth } from '../contexts/AuthContext'
 import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
@@ -652,6 +655,25 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 }
 
 function HomePage() {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate({ to: '/login' })
+    }
+  }, [isAuthenticated, navigate])
+
+  // Show loading while checking auth
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="text-lg">Checking authentication...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen w-full">
       <ClientOnly fallback={
@@ -667,6 +689,11 @@ function HomePage() {
 
 function MapComponent() {
   // Leaflet components are now imported at the top of the file
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+
+  // Drawer state
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>(
     TOGGLEABLE_WMS_LAYERS.reduce(
@@ -779,6 +806,12 @@ function MapComponent() {
     setToastType(success ? 'success' : 'error')
     setToastMessage(message)
     setShowToast(true)
+  }
+
+  // Handle logout
+  const handleLogout = () => {
+    logout()
+    navigate({ to: '/login' })
   }
 
   // Handle zoom to layer location
@@ -1126,6 +1159,17 @@ function MapComponent() {
     <div className={`w-full relative transition-all duration-300 ${
       modalVisible ? 'h-1/2' : 'h-full'
     }`}>
+      {/* Hamburger Menu Button (top-left corner) */}
+      {!comparisonMode && (
+        <button
+          onClick={() => setIsDrawerOpen(true)}
+          className="absolute top-4 left-4 z-[1001] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 hover:bg-white transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5 text-gray-700" />
+        </button>
+      )}
+
       {/* Conditional Rendering: Comparison Mode vs Normal Map */}
       {comparisonMode ? (
         // Comparison Mode: Show CompareMap
@@ -1355,6 +1399,19 @@ function MapComponent() {
           onClose={() => setShowToast(false)}
         />
       )}
+
+      {/* User Menu Drawer */}
+      <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}>
+        {user && (
+          <DrawerContent
+            name={user.full_name}
+            email={user.email}
+            phone={user.phone_number}
+            onLogout={handleLogout}
+            onClose={() => setIsDrawerOpen(false)}
+          />
+        )}
+      </Drawer>
 
     </div>
   )

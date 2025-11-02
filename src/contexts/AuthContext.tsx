@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { User, AuthState } from '../types/auth'
+import { fetchCurrentUser } from '../api/user'
 
 interface AuthContextType extends AuthState {
   login: (token: string, user?: User) => void
   logout: () => void
+  fetchAndStoreUserInfo: (token: string) => Promise<User>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -54,12 +56,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     })
   }
 
+  const fetchAndStoreUserInfo = async (token: string): Promise<User> => {
+    const user = await fetchCurrentUser(token)
+
+    // Store user data in localStorage
+    localStorage.setItem('user', JSON.stringify(user))
+
+    // Update auth state with user data
+    setAuthState(prev => ({
+      ...prev,
+      user,
+    }))
+
+    return user
+  }
+
   return (
     <AuthContext.Provider
       value={{
         ...authState,
         login,
         logout,
+        fetchAndStoreUserInfo,
       }}
     >
       {children}
