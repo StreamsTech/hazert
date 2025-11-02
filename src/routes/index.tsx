@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
-import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup, ZoomControl } from 'react-leaflet'
 import { Layers, X, Download, Table, Pen, LineChart } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
 import type { StationClickParams, StationClickResponse, WaterLevelPrediction, WaterLevelObservation } from '../types/map'
@@ -1144,7 +1144,7 @@ function MapComponent() {
           maxZoom={21}
           worldCopyJump={true}
           className={`h-full w-full ${penModeActive ? 'cursor-crosshair' : ''}`}
-          zoomControl={true}
+          zoomControl={false}
         >
           {/* Dynamic Base Layers */}
           {LAYER_TYPES[selectedBaseLayer].layers.map((layer, index) => (
@@ -1227,6 +1227,9 @@ function MapComponent() {
 
           {/* Map Click Handler */}
           <MapClickHandler />
+
+          {/* Zoom Control (bottom-right) */}
+          <ZoomControl position="bottomright" />
 
           {/* WMS Layer Controller (top-left) */}
           <LayerController
