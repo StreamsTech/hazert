@@ -4,7 +4,7 @@ import { ClientOnly } from '@tanstack/react-router'
 import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup } from 'react-leaflet'
 import { Layers, X, Download, Table, Pen, LineChart } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
-import type { StationClickParams, StationClickResponse, WaterLevelPrediction } from '../types/map'
+import type { StationClickParams, StationClickResponse, WaterLevelPrediction, WaterLevelObservation } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
 import { WaterLevelChart } from '../components/WaterLevelChart'
 import { ComparisonButton } from '../components/ui/ComparisonButton'
@@ -345,7 +345,8 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   const [endDate, setEndDate] = useState<string>('')
 
   // Water level chart data state
-  const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
+  const [predictions, setPredictions] = useState<WaterLevelPrediction[]>([])
+  const [observations, setObservations] = useState<WaterLevelObservation[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [chartError, setChartError] = useState<Error | null>(null)
 
@@ -354,17 +355,23 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
   // Download CSV handler
   const handleDownloadCSV = () => {
-    if (waterLevelData.length === 0) {
+    if (observations.length === 0 && predictions.length === 0) {
       alert('No data available to download')
       return
     }
 
+    // Merge all data for CSV export
+    const allData = [
+      ...observations.map(obs => ({ ...obs, dataType: 'Observation' })),
+      ...predictions.map(pred => ({ ...pred, dataType: 'Prediction' }))
+    ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+
     // Create CSV header
-    const csvHeader = 'Time,Water Level (v),NAVD (v_navd),Datum,Type\n'
+    const csvHeader = 'Time,Water Level (v),NAVD (v_navd),Datum,Data Type\n'
 
     // Create CSV rows
-    const csvRows = waterLevelData.map(prediction => {
-      return `${prediction.t},${prediction.v},${prediction.v_navd},${prediction.used_datum},${prediction.type}`
+    const csvRows = allData.map(item => {
+      return `${item.t},${item.v},${item.v_navd !== null ? item.v_navd : 'N/A'},${item.used_datum},${item.dataType}`
     }).join('\n')
 
     // Combine header and rows
@@ -412,17 +419,20 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
           const response = await fetchStationWaterLevel(stationId, startDate, endDate)
           console.log('✅ Water level data received:', response)
 
-          // Extract predictions for the selected station
+          // Extract predictions and observations for the selected station
           const stationData = response.saved_files[stationId]
-          if (stationData && stationData.predictions) {
-            setWaterLevelData(stationData.predictions)
+          if (stationData) {
+            setPredictions(stationData.predictions || [])
+            setObservations(stationData.observations || [])
           } else {
-            setWaterLevelData([])
+            setPredictions([])
+            setObservations([])
           }
         } catch (error) {
           console.error('❌ Error fetching water level data:', error)
           setChartError(error as Error)
-          setWaterLevelData([])
+          setPredictions([])
+          setObservations([])
         } finally {
           setIsChartLoading(false)
         }
@@ -460,6 +470,12 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
   // Get today's date for max attribute
   const today = new Date().toISOString().split('T')[0]
+
+  // Merge observations and predictions for table view
+  const allWaterLevelData = [
+    ...observations.map(obs => ({ ...obs, dataType: 'Observation' as const })),
+    ...predictions.map(pred => ({ ...pred, dataType: 'Prediction' as const }))
+  ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
 
   return (
     <div className={`fixed bottom-0 left-0 right-0 z-[2000] h-1/2 transition-transform duration-300 ease-in-out ${
@@ -581,20 +597,28 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (ft)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (ft)</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Data Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {waterLevelData.map((prediction, index) => (
-                      <tr key={prediction.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.t}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.v}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.v_navd}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.used_datum}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.type}</td>
+                    {allWaterLevelData.map((item, index) => (
+                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.t}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.v.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.v_navd !== null ? item.v_navd.toFixed(2) : 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.used_datum}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            item.dataType === 'Observation'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {item.dataType}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -605,7 +629,8 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
             /* Water Level Chart */
             <div>
               <WaterLevelChart
-                data={waterLevelData}
+                predictions={predictions}
+                observations={observations}
                 title={`Water Level Chart - ${stationName}`}
                 loading={isChartLoading}
                 stationId={stationId}
@@ -618,7 +643,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         <div className="py-2 px-4 border-t bg-gray-50 flex-shrink-0">
           <div className="flex justify-between items-center text-sm text-gray-600">
             <span>Last Seen: {data.timeStamp}</span>
-            <span>{waterLevelData.length} records found</span>
+            <span>{observations.length + predictions.length} records found ({observations.length} observations, {predictions.length} predictions)</span>
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import { TideChart } from '~/components/TideChart'
 import { WaterLevelChart } from '~/components/WaterLevelChart'
 import TideMonitoringSiteCategories from '~/components/ui/TideMonitoringSiteCategories'
 import { fetchStationWaterLevel } from '../api/stations'
-import type { WaterLevelPrediction } from '../types/map'
+import type { WaterLevelPrediction, WaterLevelObservation } from '../types/map'
 export const Route = createFileRoute('/water-level')({
   component: HomePage,
 })
@@ -107,7 +107,8 @@ function HomePage() {
 function MapComponent() {
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
   const [selectedStationName, setSelectedStationName] = useState('')
-  const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
+  const [predictions, setPredictions] = useState<WaterLevelPrediction[]>([])
+  const [observations, setObservations] = useState<WaterLevelObservation[]>([])
   const [isWaterLevelLoading, setIsWaterLevelLoading] = useState(false)
   const [waterLevelError, setWaterLevelError] = useState<Error | null>(null)
 
@@ -144,17 +145,20 @@ function MapComponent() {
         const response = await fetchStationWaterLevel(selectedStationId, startDateStr, endDateStr)
         console.log('✅ Water level data received:', response)
 
-        // Extract predictions for the selected station
+        // Extract predictions and observations for the selected station
         const stationData = response.saved_files[selectedStationId]
-        if (stationData && stationData.predictions) {
-          setWaterLevelData(stationData.predictions)
+        if (stationData) {
+          setPredictions(stationData.predictions || [])
+          setObservations(stationData.observations || [])
         } else {
-          setWaterLevelData([])
+          setPredictions([])
+          setObservations([])
         }
       } catch (error) {
         console.error('❌ Error fetching water level data:', error)
         setWaterLevelError(error as Error)
-        setWaterLevelData([])
+        setPredictions([])
+        setObservations([])
       } finally {
         setIsWaterLevelLoading(false)
       }
@@ -300,7 +304,8 @@ function MapComponent() {
             {/* Water Level Chart */}
             <div className="w-full max-w-6xl">
               <WaterLevelChart
-                data={waterLevelData}
+                predictions={predictions}
+                observations={observations}
                 title={`Water Level Data - ${selectedStationName}`}
                 loading={isWaterLevelLoading}
                 stationId={selectedStationId}
