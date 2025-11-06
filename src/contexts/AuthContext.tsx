@@ -17,19 +17,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     token: null,
   })
 
-  // Check for existing token on mount
+  // Check for existing token on mount and validate it
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    const userStr = localStorage.getItem('user')
+    const validateToken = async () => {
+      const token = localStorage.getItem('access_token')
 
-    if (token) {
-      const user = userStr ? JSON.parse(userStr) : null
-      setAuthState({
-        isAuthenticated: true,
-        user,
-        token,
-      })
+      if (!token) {
+        // No token found, user is not authenticated
+        return
+      }
+
+      try {
+        // Validate token by fetching user info from backend
+        const user = await fetchCurrentUser(token)
+
+        // Token is valid, restore session
+        setAuthState({
+          isAuthenticated: true,
+          user,
+          token,
+        })
+      } catch (error) {
+        // Token is invalid/expired, clear everything
+        console.error('Token validation failed:', error)
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user')
+        setAuthState({
+          isAuthenticated: false,
+          user: null,
+          token: null,
+        })
+      }
     }
+
+    validateToken()
   }, [])
 
   const login = (token: string, user?: User) => {
