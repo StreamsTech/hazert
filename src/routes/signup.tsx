@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { AuthCard } from '../components/ui/AuthCard'
 import { FormInput } from '../components/ui/FormInput'
 import { PhoneInput } from '../components/ui/PhoneInput'
-import { signupUser } from '../api/auth'
+import { LoadingScreen } from '../components/ui/LoadingScreen'
 import {
   validateEmail,
   validatePassword,
@@ -11,7 +11,7 @@ import {
   validateRequired,
   validatePhoneNumber,
 } from '../utils/validation'
-import { useAuth } from '../contexts/AuthContext'
+import { useBetterAuth } from '../contexts/BetterAuthContext'
 import type { SignupRequest } from '../types/auth'
 
 export const Route = createFileRoute('/signup')({
@@ -28,16 +28,9 @@ interface FormErrors {
 
 function SignupPage() {
   const navigate = useNavigate()
-  const { isAuthenticated, login, fetchAndStoreUserInfo } = useAuth()
+  const { isAuthenticated, isLoading, signUp } = useBetterAuth()
 
-  // Redirect to home if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate({ to: '/' })
-    }
-  }, [isAuthenticated, navigate])
-
-  // Form state
+  // Form state - MUST be called before any early returns
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -61,6 +54,19 @@ function SignupPage() {
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate({ to: '/' })
+    }
+  }, [isAuthenticated, isLoading, navigate])
+
+  // Show loading screen while checking auth or if already authenticated
+  // This MUST come AFTER all hooks
+  if (isLoading || isAuthenticated) {
+    return <LoadingScreen message="Redirecting to dashboard" />
+  }
 
   // Validate individual field
   const validateField = (field: keyof FormErrors, value: string) => {
@@ -154,21 +160,15 @@ function SignupPage() {
     setSubmitError(null)
 
     try {
-      const signupData: SignupRequest = {
+      // Use Better Auth signUp method
+      await signUp({
         full_name: formData.full_name,
         email: formData.email,
         phone_number: formData.phone_number,
         password: formData.password,
-      }
+      })
 
-      const response = await signupUser(signupData)
-
-      // Update auth context with token
-      login(response.access_token, response.user)
-
-      // Fetch and store user info from /me endpoint (ensures consistency)
-      await fetchAndStoreUserInfo(response.access_token)
-
+      // Better Auth handles token storage and session management automatically
       // Redirect to main page
       navigate({ to: '/' })
     } catch (error) {

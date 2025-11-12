@@ -1,13 +1,12 @@
 import type { SignupRequest, SignupResponse, LoginRequest, LoginResponse, AuthError } from '../types/auth'
-
-const API_BASE_URL = 'https://api-dev.hazert.utilian.com'
+import { API_CONFIG } from '../config/api.config'
 
 /**
  * Signup a new user
  */
 export const signupUser = async (data: SignupRequest): Promise<SignupResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/users`, {
+    const response = await fetch(`${API_CONFIG.baseURL}/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,7 +34,7 @@ export const signupUser = async (data: SignupRequest): Promise<SignupResponse> =
  */
 export const loginUser = async (data: LoginRequest): Promise<LoginResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/login`, {
+    const response = await fetch(`${API_CONFIG.baseURL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
