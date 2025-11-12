@@ -20,7 +20,8 @@
       "Bash(git rm:*)",
       "Bash(pnpm dev)",
       "WebFetch(domain:geoserver-dev.hazert.utilian.com)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []
