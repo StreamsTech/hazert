@@ -52,8 +52,7 @@ const LAYER_TYPES: Record<LayerType, LayerConfig> = {
     name: 'Terrain',
     icon: '🏔️',
     layers: [
-      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 1.0 },
-      { url: "https://mt1.google.com/vt/lyrs=t&x={x}&y={y}&z={z}", opacity: 0.4 }
+      { url: "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}", opacity: 1.0 }
     ]
   }
 }
