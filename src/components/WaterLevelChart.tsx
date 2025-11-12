@@ -1,75 +1,58 @@
 import { useMemo } from 'react'
 import Chart from 'react-apexcharts'
-import type { WaterLevelPrediction } from '../types/map'
+import type { WaterLevelPrediction, WaterLevelObservation } from '../types/map'
 
 interface WaterLevelChartProps {
-  data: WaterLevelPrediction[] | undefined
+  predictions: WaterLevelPrediction[]
+  observations: WaterLevelObservation[]
   title: string
   loading?: boolean
   stationId?: string
 }
 
-export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelChartProps) {
+export function WaterLevelChart({ predictions, observations, title, loading, stationId }: WaterLevelChartProps) {
   const chartData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return { series: [] }
-
     // Define data point type
     interface DataPoint {
       x: number
       y: number
     }
 
-    // Sort all data by timestamp first
-    const sortedData = [...data].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
-
-    // Get current date/time for comparison
-    const now = new Date()
-
-    // Split data based on current date
-    const historicalData: DataPoint[] = []
-    const predictedData: DataPoint[] = []
-    let transitionPoint: DataPoint | null = null
-
-    sortedData.forEach((item) => {
-      const itemDate = new Date(item.t)
-      const point: DataPoint = {
-        x: itemDate.getTime(),
+    // Convert observations to chart format
+    const observationsData: DataPoint[] = observations
+      .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+      .map(item => ({
+        x: new Date(item.t).getTime(),
         y: item.v
-      }
+      }))
 
-      if (itemDate <= now) {
-        // Historical: timestamp is before or equal to now
-        historicalData.push(point)
-        transitionPoint = point // Keep track of last historical point
-      } else {
-        // Predicted: timestamp is after now
-        // Add transition point to predicted series for smooth connection
-        if (transitionPoint && predictedData.length === 0) {
-          predictedData.push(transitionPoint)
-        }
-        predictedData.push(point)
-      }
-    })
+    // Convert predictions to chart format
+    const predictionsData: DataPoint[] = predictions
+      .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+      .map(item => ({
+        x: new Date(item.t).getTime(),
+        y: item.v
+      }))
 
     // Create series array
     const series: Array<{ name: string; data: DataPoint[] }> = []
 
-    if (historicalData.length > 0) {
+    if (observationsData.length > 0) {
       series.push({
-        name: 'Historical Data',
-        data: historicalData
+        name: 'Observations',
+        data: observationsData
       })
     }
 
-    if (predictedData.length > 0) {
+    if (predictionsData.length > 0) {
       series.push({
-        name: 'Predicted Data',
-        data: predictedData
+        name: 'Predictions',
+        data: predictionsData
       })
     }
 
     return { series }
-  }, [data])
+  }, [predictions, observations])
 
   const options = {
     chart: {
@@ -93,7 +76,7 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
         }
       }
     },
-    colors: ['#3B82F6', '#8B5CF6'], // Blue for historical, Purple for predicted
+    colors: ['#B4E50D', '#36A2EB'], // Green for observations, Blue for predictions
     stroke: {
       curve: 'monotoneCubic' as const, // Smooth curves for better continuity
       width: 3,
@@ -102,7 +85,8 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
     markers: {
       size: 0, // Hide markers for clean continuous line
       hover: {
-        size: 6
+        size: 7,
+        sizeOffset: 3
       }
     },
     xaxis: {
@@ -112,14 +96,25 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
       },
       title: {
         text: 'Time'
+      },
+      crosshairs: {
+        show: true,
+        width: 1,
+        position: 'back',
+        opacity: 0.9,
+        stroke: {
+          color: '#b6b6b6',
+          width: 1,
+          dashArray: 3
+        }
       }
     },
     yaxis: {
       title: {
-        text: 'Water Level (m)'
+        text: 'Water Level (feet)'
       },
       labels: {
-        formatter: (value: number) => `${value.toFixed(2)} m`
+        formatter: (value: number) => `${value.toFixed(2)} feet`
       }
     },
     grid: {
@@ -140,15 +135,25 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
     tooltip: {
       shared: true,
       intersect: false,
+      theme: 'dark',
+      followCursor: false,
+      style: {
+        fontSize: '13px',
+        fontFamily: 'inherit'
+      },
       x: {
-        format: 'yyyy-MM-dd HH:mm'
+        format: 'ddd, MMM dd yyyy, HH:mm',
+        formatter: undefined
       },
       y: {
-        formatter: (value: number, { seriesIndex }: { seriesIndex: number }) => {
-          const type = seriesIndex === 0 ? 'Historical' : 'Predicted'
-          return `${value.toFixed(2)} m (${type})`
+        formatter: (value: number) => {
+          return value !== null && value !== undefined ? `${value.toFixed(2)}ft` : 'N/A'
         }
-      }
+      },
+      marker: {
+        show: true
+      },
+      custom: undefined
     },
     title: {
       text: title,
@@ -181,7 +186,7 @@ export function WaterLevelChart({ data, title, loading, stationId }: WaterLevelC
     )
   }
 
-  if (!data || data.length === 0) {
+  if ((!predictions || predictions.length === 0) && (!observations || observations.length === 0)) {
     return (
       <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="text-center">

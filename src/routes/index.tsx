@@ -1,10 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
-import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup } from 'react-leaflet'
-import { Layers, X, Download, Table, Pen, LineChart } from 'lucide-react'
+import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup, ZoomControl } from 'react-leaflet'
+import { Layers, X, Download, Table, Pen, LineChart, Menu } from 'lucide-react'
 import { useStationClick } from '../hooks/useMapLayers'
-import type { StationClickParams, StationClickResponse, WaterLevelPrediction } from '../types/map'
+import type { StationClickParams, StationClickResponse, WaterLevelPrediction, WaterLevelObservation } from '../types/map'
 import { fetchStationWaterLevel } from '../api/stations'
 import { WaterLevelChart } from '../components/WaterLevelChart'
 import { ComparisonButton } from '../components/ui/ComparisonButton'
@@ -14,6 +14,11 @@ import { FullscreenControl } from '../components/ui/FullscreenControl'
 import { CurrentLocationControl } from '../components/ui/CurrentLocationControl'
 import { NotificationControl } from '../components/ui/NotificationControl'
 import { ToastNotification } from '../components/ui/ToastNotification'
+import { Drawer } from '../components/ui/Drawer'
+import { DrawerContent } from '../components/ui/DrawerContent'
+import { LoadingScreen } from '../components/ui/LoadingScreen'
+import { Spinner } from '../components/ui/Spinner'
+import { useBetterAuth } from '../contexts/BetterAuthContext'
 import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
@@ -83,7 +88,7 @@ const TOGGLEABLE_WMS_LAYERS = [
 // Geo Station Point layer (toggleable via checkbox in LayerController)
 const PERMANENT_LAYER = {
   id: 'raster_geo_point',
-  name: 'NOAA Predictions',
+  name: 'NOAA Stations',
   url: import.meta.env.VITE_GEOSERVER_BASE_URL,
   layers: 'flood-app:NOAA_Pred_Sts_Prj', // flood-app:noaa_predictions
   format: 'image/png',
@@ -125,6 +130,22 @@ const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
   },
 ] as const
 
+// Queryable layers configuration for pen mode depth queries
+const QUERYABLE_LAYERS_CONFIG: Record<string, { geoserverLayer: string; source: 'dropdown' | 'checkbox' }> = {
+  'water_surface_elevation': {
+    geoserverLayer: 'flood-app:rendered_noaa_wse',
+    source: 'dropdown'
+  },
+  'water_surface_elevation_second_phase': {
+    geoserverLayer: 'flood-app:noaa_wse_second',
+    source: 'dropdown'
+  },
+  'inland_flood_map': {
+    geoserverLayer: 'flood-app:Inland_Flood_Map',
+    source: 'checkbox'
+  }
+}
+
 function LayerController({
   layerVisibility,
   onLayerToggle,
@@ -141,7 +162,7 @@ function LayerController({
   // Get currently selected layer
   const selectedLayerId = Object.keys(layerVisibility).find(
     (layerId) => layerVisibility[layerId]
-  ) || TOGGLEABLE_WMS_LAYERS[0].id
+  ) || 'none'
 
   return (
     <div
@@ -165,6 +186,7 @@ function LayerController({
           onChange={(e) => onLayerToggle(e.target.value)}
           className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700 cursor-pointer shadow-sm"
         >
+          <option value="none">No Data</option>
           {TOGGLEABLE_WMS_LAYERS.map((layer) => (
             <option key={layer.id} value={layer.id}>
               {layer.name}
@@ -213,7 +235,7 @@ function LayerController({
                     className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded"
                     title="Zoom to layer"
                   >
-                    📍
+                    ➜
                   </button>
                 )}
               </div>
@@ -274,22 +296,32 @@ const LayerSwitcher: React.FC<LayerSwitcherProps> = ({ selectedLayer, onLayerCha
 interface PenModeToggleProps {
   isActive: boolean
   onToggle: () => void
+  disabled?: boolean
 }
 
-const PenModeToggle: React.FC<PenModeToggleProps> = ({ isActive, onToggle }) => (
+const PenModeToggle: React.FC<PenModeToggleProps> = ({ isActive, onToggle, disabled = false }) => (
   <div
     className="pen-toggle-prevent-click absolute top-20 right-4 z-[1001]"
     onClick={(e) => e.stopPropagation()}
     onMouseDown={(e) => e.stopPropagation()}
   >
     <button
-      onClick={onToggle}
+      onClick={disabled ? undefined : onToggle}
+      disabled={disabled}
       className={`backdrop-blur-sm rounded-lg shadow-lg p-3 transition-all duration-200 ${
-        isActive
+        disabled
+          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          : isActive
           ? 'bg-blue-500 hover:bg-blue-600 text-white'
           : 'bg-white/95 hover:bg-white text-gray-700'
       }`}
-      title={isActive ? 'Disable Pen Mode' : 'Enable Pen Mode'}
+      title={
+        disabled
+          ? 'Select a WMS layer to enable pen mode'
+          : isActive
+          ? 'Disable Pen Mode'
+          : 'Enable Pen Mode'
+      }
     >
       <Pen className="w-5 h-5" />
     </button>
@@ -318,7 +350,8 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   const [endDate, setEndDate] = useState<string>('')
 
   // Water level chart data state
-  const [waterLevelData, setWaterLevelData] = useState<WaterLevelPrediction[]>([])
+  const [predictions, setPredictions] = useState<WaterLevelPrediction[]>([])
+  const [observations, setObservations] = useState<WaterLevelObservation[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [chartError, setChartError] = useState<Error | null>(null)
 
@@ -327,17 +360,23 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
   // Download CSV handler
   const handleDownloadCSV = () => {
-    if (waterLevelData.length === 0) {
+    if (observations.length === 0 && predictions.length === 0) {
       alert('No data available to download')
       return
     }
 
+    // Merge all data for CSV export
+    const allData = [
+      ...observations.map(obs => ({ ...obs, dataType: 'Observation' })),
+      ...predictions.map(pred => ({ ...pred, dataType: 'Prediction' }))
+    ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+
     // Create CSV header
-    const csvHeader = 'Time,Water Level (v),NAVD (v_navd),Datum,Type\n'
+    const csvHeader = 'Time,Water Level (v),NAVD (v_navd),Datum,Data Type\n'
 
     // Create CSV rows
-    const csvRows = waterLevelData.map(prediction => {
-      return `${prediction.t},${prediction.v},${prediction.v_navd},${prediction.used_datum},${prediction.type}`
+    const csvRows = allData.map(item => {
+      return `${item.t},${item.v},${item.v_navd !== null ? item.v_navd : 'N/A'},${item.used_datum},${item.dataType}`
     }).join('\n')
 
     // Combine header and rows
@@ -385,17 +424,20 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
           const response = await fetchStationWaterLevel(stationId, startDate, endDate)
           console.log('✅ Water level data received:', response)
 
-          // Extract predictions for the selected station
+          // Extract predictions and observations for the selected station
           const stationData = response.saved_files[stationId]
-          if (stationData && stationData.predictions) {
-            setWaterLevelData(stationData.predictions)
+          if (stationData) {
+            setPredictions(stationData.predictions || [])
+            setObservations(stationData.observations || [])
           } else {
-            setWaterLevelData([])
+            setPredictions([])
+            setObservations([])
           }
         } catch (error) {
           console.error('❌ Error fetching water level data:', error)
           setChartError(error as Error)
-          setWaterLevelData([])
+          setPredictions([])
+          setObservations([])
         } finally {
           setIsChartLoading(false)
         }
@@ -433,6 +475,12 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
   // Get today's date for max attribute
   const today = new Date().toISOString().split('T')[0]
+
+  // Merge observations and predictions for table view
+  const allWaterLevelData = [
+    ...observations.map(obs => ({ ...obs, dataType: 'Observation' as const })),
+    ...predictions.map(pred => ({ ...pred, dataType: 'Prediction' as const }))
+  ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
 
   return (
     <div className={`fixed bottom-0 left-0 right-0 z-[2000] h-1/2 transition-transform duration-300 ease-in-out ${
@@ -554,20 +602,28 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (v)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (v_navd)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (ft)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (ft)</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Data Type</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {waterLevelData.map((prediction, index) => (
-                      <tr key={prediction.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.t}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.v}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.v_navd}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.used_datum}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{prediction.type}</td>
+                    {allWaterLevelData.map((item, index) => (
+                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.t}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.v.toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.v_navd !== null ? item.v_navd.toFixed(2) : 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.used_datum}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            item.dataType === 'Observation'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {item.dataType}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -578,7 +634,8 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
             /* Water Level Chart */
             <div>
               <WaterLevelChart
-                data={waterLevelData}
+                predictions={predictions}
+                observations={observations}
                 title={`Water Level Chart - ${stationName}`}
                 loading={isChartLoading}
                 stationId={stationId}
@@ -591,7 +648,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
         <div className="py-2 px-4 border-t bg-gray-50 flex-shrink-0">
           <div className="flex justify-between items-center text-sm text-gray-600">
             <span>Last Seen: {data.timeStamp}</span>
-            <span>{waterLevelData.length} records found</span>
+            <span>{observations.length + predictions.length} records found ({observations.length} observations, {predictions.length} predictions)</span>
           </div>
         </div>
       </div>
@@ -600,13 +657,24 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 }
 
 function HomePage() {
+  const navigate = useNavigate()
+  const { isAuthenticated, isLoading } = useBetterAuth()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate({ to: '/login' })
+    }
+  }, [isAuthenticated, isLoading, navigate])
+
+  // Show loading while checking auth
+  if (isLoading || !isAuthenticated) {
+    return <LoadingScreen message="Checking authentication" />
+  }
+
   return (
     <div className="h-screen w-full">
-      <ClientOnly fallback={
-        <div className="h-screen w-full flex items-center justify-center">
-          <div className="text-lg">Loading map...</div>
-        </div>
-      }>
+      <ClientOnly fallback={<LoadingScreen message="Loading map" />}>
         <MapComponent />
       </ClientOnly>
     </div>
@@ -615,6 +683,11 @@ function HomePage() {
 
 function MapComponent() {
   // Leaflet components are now imported at the top of the file
+  const navigate = useNavigate()
+  const { user, signOut } = useBetterAuth()
+
+  // Drawer state
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>(
     TOGGLEABLE_WMS_LAYERS.reduce(
@@ -641,6 +714,11 @@ function MapComponent() {
     ),
   })
 
+  // Calculate if pen mode should be disabled (checks both dropdown and checkbox queryable layers)
+  const hasDropdownLayer = Object.values(layerVisibility).some(visible => visible)
+  const hasInlandFloodMap = checkboxLayerVisibility['inland_flood_map']
+  const isPenModeDisabled = !hasDropdownLayer && !hasInlandFloodMap
+
   // Modal and station click state
   const [clickParams, setClickParams] = useState<StationClickParams | null>(null)
   const [selectedStation, setSelectedStation] = useState<StationClickResponse | null>(null)
@@ -650,6 +728,7 @@ function MapComponent() {
   const [penModeActive, setPenModeActive] = useState(false)
   const [markerPosition, setMarkerPosition] = useState<L.LatLng | null>(null)
   const [markerDepth, setMarkerDepth] = useState<number | null>(null)
+  const [markerUnit, setMarkerUnit] = useState<string>('feet')
   const [isLoadingDepth, setIsLoadingDepth] = useState(false)
 
   // Comparison mode state
@@ -670,8 +749,17 @@ function MapComponent() {
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const handleLayerToggle = (layerId: string) => {
-    // Prevent deselecting the currently active layer
-    if (layerVisibility[layerId]) return
+    // Handle "none" selection - hide all layers
+    if (layerId === 'none') {
+      setLayerVisibility((prev) => {
+        const newState: Record<string, boolean> = {}
+        for (const key of Object.keys(prev)) {
+          newState[key] = false
+        }
+        return newState
+      })
+      return
+    }
 
     // Radio button behavior: only one layer visible at a time
     setLayerVisibility((prev) => {
@@ -714,6 +802,12 @@ function MapComponent() {
     setShowToast(true)
   }
 
+  // Handle logout
+  const handleLogout = async () => {
+    await signOut()
+    navigate({ to: '/login' })
+  }
+
   // Handle zoom to layer location
   const handleZoomToLayer = useCallback((lat: number, lon: number, zoom: number) => {
     if (mapRef.current) {
@@ -734,11 +828,33 @@ function MapComponent() {
     )
   }, [layerVisibility])
 
-  // Fetch water depth from GetFeatureInfo API
+  // Get all visible queryable layers (for multi-layer pen mode depth queries)
+  const getVisibleQueryableLayers = useCallback(() => {
+    const visibleLayers: string[] = []
+
+    // Loop through all queryable layers
+    Object.keys(QUERYABLE_LAYERS_CONFIG).forEach(layerId => {
+      const config = QUERYABLE_LAYERS_CONFIG[layerId]
+
+      // Check visibility based on source (dropdown or checkbox)
+      const isVisible = config.source === 'dropdown'
+        ? layerVisibility[layerId]
+        : checkboxLayerVisibility[layerId]
+
+      // If visible, add GeoServer layer name to array
+      if (isVisible) {
+        visibleLayers.push(config.geoserverLayer)
+      }
+    })
+
+    return visibleLayers
+  }, [layerVisibility, checkboxLayerVisibility])
+
+  // Fetch water depth from GetFeatureInfo API (supports multiple layers)
   const fetchWaterDepth = useCallback(async (
     latlng: L.LatLng,
     map: L.Map,
-    layer: typeof TOGGLEABLE_WMS_LAYERS[number]
+    layerNames: string[]
   ) => {
     // Cancel previous request
     if (abortControllerRef.current) {
@@ -771,13 +887,16 @@ function MapComponent() {
 
       const bbox = `${bboxMinX},${bboxMinY},${bboxMaxX},${bboxMaxY}`
 
+      // Build comma-separated layer string
+      const layerString = layerNames.join(',')
+
       // Debug logging
       console.log('🎯 Pen Mode Debug:', {
         cursor: { lat: latlng.lat, lng: latlng.lng },
         bbox,
         bboxParsed: { west: bboxMinX, south: bboxMinY, east: bboxMaxX, north: bboxMaxY },
         pixelSize: { degPerPixelX, degPerPixelY },
-        layer: layer.layers
+        layers: layerString
       })
 
       // Build params matching the working example format
@@ -787,10 +906,10 @@ function MapComponent() {
         REQUEST: 'GetFeatureInfo',
         FORMAT: 'image/jpeg',
         TRANSPARENT: 'true',
-        QUERY_LAYERS: layer.layers,
-        LAYERS: layer.layers,
+        QUERY_LAYERS: layerString,
+        LAYERS: layerString,
         exceptions: 'application/vnd.ogc.se_inimage',
-        INFO_FORMAT: 'application/json',
+        INFO_FORMAT: 'text/html',
         FEATURE_COUNT: '50',
         X: '50', // Center of 101x101 box
         Y: '50', // Center of 101x101 box
@@ -813,22 +932,77 @@ function MapComponent() {
 
       if (!response.ok) throw new Error('API request failed')
 
-      const data = await response.json()
+      // Parse HTML response to extract JSON
+      const htmlText = await response.text()
+      console.log('📄 Raw HTML response:', htmlText.substring(0, 200))
 
+      // Extract body content first (to skip CSS in <style> tags)
+      const bodyStart = htmlText.indexOf('<body>')
+      const bodyEnd = htmlText.indexOf('</body>')
+
+      if (bodyStart === -1 || bodyEnd === -1) {
+        console.log('❌ No <body> tag found in HTML')
+        setMarkerDepth(null)
+        setMarkerUnit('feet')
+        return
+      }
+
+      const bodyContent = htmlText.substring(bodyStart + 6, bodyEnd) // +6 to skip '<body>'
+      console.log('📦 Body content:', bodyContent.substring(0, 100))
+
+      // Now search for JSON braces within body content only
+      const firstBrace = bodyContent.indexOf('{')
+      const lastBrace = bodyContent.lastIndexOf('}')
+      console.log('🔍 Brace positions in body:', { firstBrace, lastBrace })
+
+      // If no JSON found in body, show "No data"
+      if (firstBrace === -1 || lastBrace === -1) {
+        console.log('❌ No JSON braces found in body')
+        setMarkerDepth(null)
+        setMarkerUnit('feet')
+        return
+      }
+
+      const jsonString = bodyContent.substring(firstBrace, lastBrace + 1)
+      console.log('📋 Extracted JSON string:', jsonString.substring(0, 100))
+
+      const data = JSON.parse(jsonString)
+      console.log('✅ Parsed JSON data:', data)
+
+      // Loop through features array to find first non-null GRAY_INDEX
       if (data.features && data.features.length > 0) {
-        const grayIndex = data.features[0].properties?.GRAY_INDEX
-        if (grayIndex !== undefined && grayIndex !== null) {
-          setMarkerDepth(grayIndex)
-        } else {
+        console.log(`🔢 Found ${data.features.length} features`)
+        let foundDepth = false
+        for (const feature of data.features) {
+          const grayIndex = feature.properties?.GRAY_INDEX
+          const unit = feature.properties?.unit || 'feet'
+          console.log('🎯 Feature properties:', { grayIndex, unit, properties: feature.properties })
+          // Check if valid: not null/undefined AND not negative (negative = NoData sentinel)
+          if (grayIndex !== undefined && grayIndex !== null && grayIndex >= 0) {
+            console.log('✅ Setting depth:', grayIndex, unit)
+            setMarkerDepth(grayIndex)
+            setMarkerUnit(unit)
+            foundDepth = true
+            break // Found first valid value, stop looking
+          } else if (grayIndex < 0) {
+            console.log('⚠️ Negative GRAY_INDEX (NoData sentinel):', grayIndex)
+          }
+        }
+        if (!foundDepth) {
+          console.log('⚠️ No valid GRAY_INDEX found')
           setMarkerDepth(null)
+          setMarkerUnit('feet')
         }
       } else {
+        console.log('⚠️ No features in response')
         setMarkerDepth(null)
+        setMarkerUnit('feet')
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error('Error fetching water depth:', error)
         setMarkerDepth(null)
+        setMarkerUnit('feet')
       }
     } finally {
       setIsLoadingDepth(false)
@@ -841,13 +1015,13 @@ function MapComponent() {
 
     console.log('🖱️ Pen mode click detected:', { lat: e.latlng.lat, lng: e.latlng.lng })
 
-    const activeLayer = getActiveLayer()
-    if (!activeLayer) {
-      console.log('⚠️ No active layer found for pen mode')
+    const visibleQueryableLayers = getVisibleQueryableLayers()
+    if (visibleQueryableLayers.length === 0) {
+      console.log('⚠️ No queryable layers visible for pen mode')
       return
     }
 
-    console.log('✅ Active layer:', activeLayer.name)
+    console.log('✅ Queryable layers:', visibleQueryableLayers)
 
     const map = e.target
 
@@ -855,9 +1029,9 @@ function MapComponent() {
     setMarkerPosition(e.latlng)
     setMarkerDepth(null) // Reset depth when placing new marker
 
-    // Fetch water depth
-    fetchWaterDepth(e.latlng, map, activeLayer)
-  }, [penModeActive, getActiveLayer, fetchWaterDepth])
+    // Fetch water depth from all visible queryable layers
+    fetchWaterDepth(e.latlng, map, visibleQueryableLayers)
+  }, [penModeActive, getVisibleQueryableLayers, fetchWaterDepth])
 
   // Cleanup on unmount or pen mode toggle
   useEffect(() => {
@@ -867,8 +1041,20 @@ function MapComponent() {
       }
       setMarkerPosition(null)
       setMarkerDepth(null)
+      setMarkerUnit('feet')
     }
   }, [penModeActive])
+
+  // Auto-disable pen mode when no queryable layers are visible
+  useEffect(() => {
+    const visibleQueryableLayers = getVisibleQueryableLayers()
+    if (visibleQueryableLayers.length === 0 && penModeActive) {
+      setPenModeActive(false)
+      setMarkerPosition(null)
+      setMarkerDepth(null)
+      setMarkerUnit('feet')
+    }
+  }, [layerVisibility, checkboxLayerVisibility, penModeActive, getVisibleQueryableLayers])
 
   // Create custom pin icon
   const [pinIconInstance, setPinIconInstance] = useState<L.Icon | null>(null)
@@ -967,6 +1153,17 @@ function MapComponent() {
     <div className={`w-full relative transition-all duration-300 ${
       modalVisible ? 'h-1/2' : 'h-full'
     }`}>
+      {/* Hamburger Menu Button (top-left corner) */}
+      {!comparisonMode && (
+        <button
+          onClick={() => setIsDrawerOpen(true)}
+          className="absolute top-4 left-4 z-[1001] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 hover:bg-white transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5 text-gray-700" />
+        </button>
+      )}
+
       {/* Conditional Rendering: Comparison Mode vs Normal Map */}
       {comparisonMode ? (
         // Comparison Mode: Show CompareMap
@@ -985,7 +1182,7 @@ function MapComponent() {
           maxZoom={21}
           worldCopyJump={true}
           className={`h-full w-full ${penModeActive ? 'cursor-crosshair' : ''}`}
-          zoomControl={true}
+          zoomControl={false}
         >
           {/* Dynamic Base Layers */}
           {LAYER_TYPES[selectedBaseLayer].layers.map((layer, index) => (
@@ -1069,6 +1266,9 @@ function MapComponent() {
           {/* Map Click Handler */}
           <MapClickHandler />
 
+          {/* Zoom Control (bottom-right) */}
+          <ZoomControl position="bottomright" />
+
           {/* WMS Layer Controller (top-left) */}
           <LayerController
             layerVisibility={layerVisibility}
@@ -1087,10 +1287,12 @@ function MapComponent() {
           {/* Pen Mode Toggle Button */}
           <PenModeToggle
             isActive={penModeActive}
+            disabled={isPenModeDisabled}
             onToggle={() => {
               setPenModeActive(!penModeActive)
               if (penModeActive) {
                 setMarkerDepth(null)
+                setMarkerUnit('feet')
               }
             }}
           />
@@ -1115,12 +1317,12 @@ function MapComponent() {
                   <div className="text-xs font-medium text-gray-500 mb-1">Water Depth</div>
                   {isLoadingDepth ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <Spinner size="sm" color="blue" />
                       <span className="text-sm text-gray-600">Loading...</span>
                     </div>
                   ) : markerDepth !== null ? (
                     <div className="text-base font-semibold text-gray-900">
-                      {markerDepth.toFixed(2)} feet
+                      {markerDepth.toFixed(2)} {markerUnit}
                     </div>
                   ) : (
                     <div className="text-sm text-gray-400">No data</div>
@@ -1165,7 +1367,7 @@ function MapComponent() {
       {isLoading && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1500]">
           <div className="bg-white rounded-lg shadow-lg p-4 flex items-center gap-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <Spinner size="md" color="blue" />
             <span className="text-sm text-gray-700">Loading station data...</span>
           </div>
         </div>
@@ -1191,6 +1393,19 @@ function MapComponent() {
           onClose={() => setShowToast(false)}
         />
       )}
+
+      {/* User Menu Drawer */}
+      <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}>
+        {user && (
+          <DrawerContent
+            name={user.full_name}
+            email={user.email}
+            phone={user.phone_number}
+            onLogout={handleLogout}
+            onClose={() => setIsDrawerOpen(false)}
+          />
+        )}
+      </Drawer>
 
     </div>
   )

@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaterLevelRouteImport } from './routes/water-level'
 import { Route as TemporaryRouteImport } from './routes/temporary'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as CompareMapRouteImport } from './routes/compare-map'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +24,16 @@ const WaterLevelRoute = WaterLevelRouteImport.update({
 const TemporaryRoute = TemporaryRouteImport.update({
   id: '/temporary',
   path: '/temporary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompareMapRoute = CompareMapRouteImport.update({
@@ -38,12 +50,16 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/compare-map': typeof CompareMapRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/compare-map': typeof CompareMapRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
@@ -51,20 +67,43 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/compare-map': typeof CompareMapRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
   '/temporary': typeof TemporaryRoute
   '/water-level': typeof WaterLevelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/compare-map' | '/temporary' | '/water-level'
+  fullPaths:
+    | '/'
+    | '/compare-map'
+    | '/login'
+    | '/signup'
+    | '/temporary'
+    | '/water-level'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/compare-map' | '/temporary' | '/water-level'
-  id: '__root__' | '/' | '/compare-map' | '/temporary' | '/water-level'
+  to:
+    | '/'
+    | '/compare-map'
+    | '/login'
+    | '/signup'
+    | '/temporary'
+    | '/water-level'
+  id:
+    | '__root__'
+    | '/'
+    | '/compare-map'
+    | '/login'
+    | '/signup'
+    | '/temporary'
+    | '/water-level'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompareMapRoute: typeof CompareMapRoute
+  LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
   TemporaryRoute: typeof TemporaryRoute
   WaterLevelRoute: typeof WaterLevelRoute
 }
@@ -83,6 +122,20 @@ declare module '@tanstack/react-router' {
       path: '/temporary'
       fullPath: '/temporary'
       preLoaderRoute: typeof TemporaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/compare-map': {
@@ -105,6 +158,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompareMapRoute: CompareMapRoute,
+  LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
   TemporaryRoute: TemporaryRoute,
   WaterLevelRoute: WaterLevelRoute,
 }
