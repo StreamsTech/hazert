@@ -11,3 +11,5 @@ count.txt
 .vinxi
 todos.json
 .claude/
+.claude/settings.local.json
+requirements/

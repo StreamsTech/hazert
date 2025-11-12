@@ -13,6 +13,7 @@ import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
+import { BetterAuthProvider } from '~/contexts/BetterAuthContext'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -81,7 +82,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <BetterAuthProvider>
+            {children}
+        </BetterAuthProvider>
         <TanStackRouterDevtools position="bottom-right" />
         <Scripts />
       </body>

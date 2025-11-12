@@ -16,7 +16,12 @@
       "Bash(pnpm remove react-leaflet-fullscreen)",
       "Bash(pnpm remove leaflet.locatecontrol)",
       "Bash(pnpm remove leaflet-geosearch)",
-      "SlashCommand(/commit)"
+      "SlashCommand(/commit)",
+      "Bash(git rm:*)",
+      "Bash(pnpm dev)",
+      "WebFetch(domain:geoserver-dev.hazert.utilian.com)",
+      "Bash(git log:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []

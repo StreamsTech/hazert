@@ -101,10 +101,25 @@ export interface WaterLevelPrediction {
   used_datum: string
 }
 
+export interface WaterLevelObservation {
+  id: number
+  station_id: string
+  t: string
+  v: number
+  s: string
+  f: string
+  q: string
+  v_navd: number | null
+  used_datum: string
+}
+
 export interface StationWaterLevelData {
   status: string
   count: number
+  prediction_count: number
   predictions: WaterLevelPrediction[]
+  observation_count: number
+  observations: WaterLevelObservation[]
 }
 
 export interface WaterLevelResponse {
