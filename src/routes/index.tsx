@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ClientOnly } from '@tanstack/react-router'
 import { MapContainer, TileLayer, WMSTileLayer, useMapEvents, Marker, Popup, ZoomControl } from 'react-leaflet'
 import { Layers, X, Download, Table, Pen, LineChart, Menu } from 'lucide-react'
@@ -52,8 +52,7 @@ const LAYER_TYPES: Record<LayerType, LayerConfig> = {
     name: 'Terrain',
     icon: '🏔️',
     layers: [
-      { url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", opacity: 1.0 },
-      { url: "https://mt1.google.com/vt/lyrs=t&x={x}&y={y}&z={z}", opacity: 0.4 }
+      { url: "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}", opacity: 1.0 }
     ]
   }
 }
@@ -365,18 +364,14 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
       return
     }
 
-    // Merge all data for CSV export
-    const allData = [
-      ...observations.map(obs => ({ ...obs, dataType: 'Observation' })),
-      ...predictions.map(pred => ({ ...pred, dataType: 'Prediction' }))
-    ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+    // Create CSV header (matching new table structure)
+    const csvHeader = 'Time,NOAA Prediction (ft),Observation (ft)\n'
 
-    // Create CSV header
-    const csvHeader = 'Time,Water Level (v),NAVD (v_navd),Datum,Data Type\n'
-
-    // Create CSV rows
-    const csvRows = allData.map(item => {
-      return `${item.t},${item.v},${item.v_navd !== null ? item.v_navd : 'N/A'},${item.used_datum},${item.dataType}`
+    // Create CSV rows using tableData structure
+    const csvRows = tableData.map(item => {
+      const predictionValue = typeof item.prediction === 'number' ? item.prediction.toFixed(2) : '-'
+      const observationValue = typeof item.observation === 'number' ? item.observation.toFixed(2) : '-'
+      return `${item.time},${predictionValue},${observationValue}`
     }).join('\n')
 
     // Combine header and rows
@@ -476,11 +471,40 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
   // Get today's date for max attribute
   const today = new Date().toISOString().split('T')[0]
 
-  // Merge observations and predictions for table view
-  const allWaterLevelData = [
-    ...observations.map(obs => ({ ...obs, dataType: 'Observation' as const })),
-    ...predictions.map(pred => ({ ...pred, dataType: 'Prediction' as const }))
-  ].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+  // Create table data with predictions and observations side by side
+  const tableData = useMemo(() => {
+    // Get all unique timestamps from predictions (primary source)
+    const timestampMap = new Map<string, { time: string; prediction: number | null; observation: number | null }>()
+
+    // Add all predictions
+    predictions.forEach(pred => {
+      timestampMap.set(pred.t, {
+        time: pred.t,
+        prediction: pred.v,
+        observation: null
+      })
+    })
+
+    // Match observations to timestamps
+    observations.forEach(obs => {
+      const existing = timestampMap.get(obs.t)
+      if (existing) {
+        existing.observation = obs.v
+      } else {
+        // If observation timestamp doesn't exist in predictions, add it
+        timestampMap.set(obs.t, {
+          time: obs.t,
+          prediction: null,
+          observation: obs.v
+        })
+      }
+    })
+
+    // Convert to array and sort by time
+    return Array.from(timestampMap.values()).sort((a, b) =>
+      new Date(a.time).getTime() - new Date(b.time).getTime()
+    )
+  }, [predictions, observations])
 
   return (
     <div className={`fixed bottom-0 left-0 right-0 z-[2000] h-1/2 transition-transform duration-300 ease-in-out ${
@@ -602,27 +626,19 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Water Level (ft)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NAVD (ft)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Datum</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Data Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">NOAA Prediction (ft)</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-b">Observation (ft)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {allWaterLevelData.map((item, index) => (
-                      <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.t}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.v.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.v_navd !== null ? item.v_navd.toFixed(2) : 'N/A'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{item.used_datum}</td>
+                    {tableData.map((item, index) => (
+                      <tr key={item.time} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.time}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            item.dataType === 'Observation'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {item.dataType}
-                          </span>
+                          {typeof item.prediction === 'number' ? item.prediction.toFixed(2) : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {typeof item.observation === 'number' ? item.observation.toFixed(2) : '-'}
                         </td>
                       </tr>
                     ))}

@@ -89,43 +89,72 @@ interface MapLegendProps {
   rightLayerName: string
 }
 
-const MapLegend: React.FC<MapLegendProps> = ({ leftLayerName, rightLayerName }) => (
-  <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 z-[1000] min-w-[280px]">
-    <div className="flex items-center gap-2 mb-3">
-      <Layers className="w-5 h-5 text-blue-600" />
-      <h3 className="font-semibold text-gray-800">Layer Comparison</h3>
-    </div>
+// Helper function to get color based on layer name
+const getLayerColor = (layerName: string): string => {
+  if (layerName.includes('24 hours')) {
+    return '#abd9e9' // Dark navy blue for 24 hours
+  } else if (layerName.includes('12 hours')) {
+    return '#FAB12F' // Saddle brown for 12 hours
+  }
+  return '#6B7280' // Default gray fallback
+}
 
-    <div className="space-y-3">
-      {/* Left Layer */}
-      <div className="flex items-center gap-3">
-        <div className="w-4 h-4 bg-blue-500 rounded border border-blue-600 flex-shrink-0" />
-        <div className="min-w-0">
-          <p className="font-medium text-sm text-gray-800 truncate">{leftLayerName}</p>
-          <p className="text-xs text-gray-600">Left Side</p>
+const MapLegend: React.FC<MapLegendProps> = ({ leftLayerName, rightLayerName }) => {
+  const leftColor = getLayerColor(leftLayerName)
+  const rightColor = getLayerColor(rightLayerName)
+
+  return (
+    <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 z-[1000] min-w-[280px]">
+      <div className="flex items-center gap-2 mb-3">
+        <Layers className="w-5 h-5 text-blue-600" />
+        <h3 className="font-semibold text-gray-800">Layer Comparison</h3>
+      </div>
+
+      <div className="space-y-3">
+        {/* Left Layer */}
+        <div className="flex items-center gap-3">
+          <div
+            className="w-4 h-4 rounded border flex-shrink-0"
+            style={{
+              backgroundColor: leftColor,
+              borderColor: leftColor,
+              borderWidth: '1px'
+            }}
+          />
+          <div className="min-w-0">
+            <p className="font-medium text-sm text-gray-800 truncate">{leftLayerName}</p>
+            <p className="text-xs text-gray-600">Left Side</p>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-200" />
+
+        {/* Right Layer */}
+        <div className="flex items-center gap-3">
+          <div
+            className="w-4 h-4 rounded border flex-shrink-0"
+            style={{
+              backgroundColor: rightColor,
+              borderColor: rightColor,
+              borderWidth: '1px'
+            }}
+          />
+          <div className="min-w-0">
+            <p className="font-medium text-sm text-gray-800 truncate">{rightLayerName}</p>
+            <p className="text-xs text-gray-600">Right Side</p>
+          </div>
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-gray-200" />
-
-      {/* Right Layer */}
-      <div className="flex items-center gap-3">
-        <div className="w-4 h-4 bg-green-500 rounded border border-green-600 flex-shrink-0" />
-        <div className="min-w-0">
-          <p className="font-medium text-sm text-gray-800 truncate">{rightLayerName}</p>
-          <p className="text-xs text-gray-600">Right Side</p>
-        </div>
+      <div className="mt-3 pt-3 border-t border-gray-200">
+        <p className="text-xs text-gray-500">
+          Drag the slider to compare layers
+        </p>
       </div>
     </div>
-
-    <div className="mt-3 pt-3 border-t border-gray-200">
-      <p className="text-xs text-gray-500">
-        Drag the slider to compare layers
-      </p>
-    </div>
-  </div>
-)
+  )
+}
 
 // Disable Button Component
 interface DisableButtonProps {

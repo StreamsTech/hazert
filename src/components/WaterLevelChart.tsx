@@ -46,7 +46,7 @@ export function WaterLevelChart({ predictions, observations, title, loading, sta
 
     if (predictionsData.length > 0) {
       series.push({
-        name: 'Predictions',
+        name: 'NOAA Predictions',
         data: predictionsData
       })
     }
