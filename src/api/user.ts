@@ -1,23 +1,17 @@
+import { api } from '../lib/api-client'
 import type { User } from '../types/auth'
-
-const API_BASE_URL = 'https://api-dev.hazert.utilian.com'
 
 /**
  * Fetch current logged-in user information
+ * Now uses Better Auth's automatic token injection - no need to pass token manually!
  */
-export const fetchCurrentUser = async (token: string): Promise<User> => {
-  const response = await fetch(`${API_BASE_URL}/me`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
+export const fetchCurrentUser = async (): Promise<User> => {
+  return api.get<User>('/me')
+}
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to fetch user info' }))
-    throw new Error(error.detail || 'Failed to fetch user info')
-  }
-
-  return await response.json()
+/**
+ * Update user profile
+ */
+export const updateUserProfile = async (data: Partial<User>): Promise<User> => {
+  return api.put<User>('/users/me', data)
 }

@@ -2,9 +2,9 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { AuthCard } from '../components/ui/AuthCard'
 import { FormInput } from '../components/ui/FormInput'
-import { loginUser } from '../api/auth'
+import { LoadingScreen } from '../components/ui/LoadingScreen'
 import { validateEmail, validateRequired } from '../utils/validation'
-import { useAuth } from '../contexts/AuthContext'
+import { useBetterAuth } from '../contexts/BetterAuthContext'
 import type { LoginRequest } from '../types/auth'
 
 export const Route = createFileRoute('/login')({
@@ -18,16 +18,9 @@ interface FormErrors {
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { isAuthenticated, login, fetchAndStoreUserInfo } = useAuth()
+  const { isAuthenticated, isLoading, signIn } = useBetterAuth()
 
-  // Redirect to home if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate({ to: '/' })
-    }
-  }, [isAuthenticated, navigate])
-
-  // Form state
+  // Form state - MUST be called before any early returns
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -45,6 +38,19 @@ function LoginPage() {
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate({ to: '/' })
+    }
+  }, [isAuthenticated, isLoading, navigate])
+
+  // Show loading screen while checking auth or if already authenticated
+  // This MUST come AFTER all hooks
+  if (isLoading || isAuthenticated) {
+    return <LoadingScreen message="Redirecting to dashboard" />
+  }
 
   // Validate individual field
   const validateField = (field: keyof FormErrors, value: string) => {
@@ -114,19 +120,13 @@ function LoginPage() {
     setSubmitError(null)
 
     try {
-      const loginData: LoginRequest = {
+      // Use Better Auth signIn method
+      await signIn({
         email: formData.email,
         password: formData.password,
-      }
+      })
 
-      const response = await loginUser(loginData)
-
-      // Update auth context with token
-      login(response.access_token)
-
-      // Fetch and store user info from /me endpoint
-      await fetchAndStoreUserInfo(response.access_token)
-
+      // Better Auth handles token storage and session management automatically
       // Redirect to main page
       navigate({ to: '/' })
     } catch (error) {
@@ -188,15 +188,6 @@ function LoginPage() {
           {isSubmitting ? 'Logging in...' : 'Login'}
         </button>
       </form>
-
-      <div className="mt-6 text-center">
-        <p className="text-sm text-black">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-            Sign Up
-          </Link>
-        </p>
-      </div>
     </AuthCard>
   )
 }

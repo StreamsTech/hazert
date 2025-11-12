@@ -16,7 +16,9 @@ import { NotificationControl } from '../components/ui/NotificationControl'
 import { ToastNotification } from '../components/ui/ToastNotification'
 import { Drawer } from '../components/ui/Drawer'
 import { DrawerContent } from '../components/ui/DrawerContent'
-import { useAuth } from '../contexts/AuthContext'
+import { LoadingScreen } from '../components/ui/LoadingScreen'
+import { Spinner } from '../components/ui/Spinner'
+import { useBetterAuth } from '../contexts/BetterAuthContext'
 import L from 'leaflet'
 
 // Layer types configuration (full opacity like current index.tsx)
@@ -656,31 +658,23 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
 
 function HomePage() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useBetterAuth()
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate({ to: '/login' })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, isLoading, navigate])
 
   // Show loading while checking auth
-  if (!isAuthenticated) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <div className="text-lg">Checking authentication...</div>
-      </div>
-    )
+  if (isLoading || !isAuthenticated) {
+    return <LoadingScreen message="Checking authentication" />
   }
 
   return (
     <div className="h-screen w-full">
-      <ClientOnly fallback={
-        <div className="h-screen w-full flex items-center justify-center">
-          <div className="text-lg">Loading map...</div>
-        </div>
-      }>
+      <ClientOnly fallback={<LoadingScreen message="Loading map" />}>
         <MapComponent />
       </ClientOnly>
     </div>
@@ -690,7 +684,7 @@ function HomePage() {
 function MapComponent() {
   // Leaflet components are now imported at the top of the file
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, signOut } = useBetterAuth()
 
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -809,8 +803,8 @@ function MapComponent() {
   }
 
   // Handle logout
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await signOut()
     navigate({ to: '/login' })
   }
 
@@ -1323,7 +1317,7 @@ function MapComponent() {
                   <div className="text-xs font-medium text-gray-500 mb-1">Water Depth</div>
                   {isLoadingDepth ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <Spinner size="sm" color="blue" />
                       <span className="text-sm text-gray-600">Loading...</span>
                     </div>
                   ) : markerDepth !== null ? (
@@ -1373,7 +1367,7 @@ function MapComponent() {
       {isLoading && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1500]">
           <div className="bg-white rounded-lg shadow-lg p-4 flex items-center gap-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <Spinner size="md" color="blue" />
             <span className="text-sm text-gray-700">Loading station data...</span>
           </div>
         </div>
