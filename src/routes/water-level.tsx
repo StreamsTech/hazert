@@ -52,11 +52,14 @@ const createCircularMarkerIcon = (value: number) => {
   return null
 }
 
+// Fallback GeoServer URL (used if environment variable is not set)
+const GEOSERVER_BASE_URL = import.meta.env.VITE_GEOSERVER_BASE_URL || 'https://geoserver-hazert.utilian.com/geoserver/wms'
+
 const WMS_LAYERS = [
   {
     id: 'raster_data_1',
     name: 'Raster Data 1',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:NorflokDEM10m_Prj1',
     format: 'image/png',
     transparent: true,
@@ -66,7 +69,7 @@ const WMS_LAYERS = [
   {
     id: 'raster_data_2',
     name: 'Raster Data 2',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:NorflokDEM10m_Prj2',
     format: 'image/png',
     transparent: true,

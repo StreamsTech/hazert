@@ -60,12 +60,15 @@ const LAYER_TYPES: Record<LayerType, LayerConfig> = {
 export const Route = createFileRoute('/')({
   component: HomePage,
 })
+// Fallback GeoServer URL (used if environment variable is not set)
+const GEOSERVER_BASE_URL = import.meta.env.VITE_GEOSERVER_BASE_URL || 'https://geoserver-hazert.utilian.com/geoserver/wms'
+
 // Toggleable layers (appear in LayerController)
 const TOGGLEABLE_WMS_LAYERS = [
   {
     id: 'water_surface_elevation',
     name: 'Coastal WSE in 12 hours',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:rendered_noaa_wse',
     format: 'image/png',
     transparent: true,
@@ -75,7 +78,7 @@ const TOGGLEABLE_WMS_LAYERS = [
   {
     id: 'water_surface_elevation_second_phase',
     name: 'Coastal WSE in 24 hours',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:noaa_wse_second',
     format: 'image/png',
     transparent: true,
@@ -88,7 +91,7 @@ const TOGGLEABLE_WMS_LAYERS = [
 const PERMANENT_LAYER = {
   id: 'raster_geo_point',
   name: 'NOAA Stations',
-  url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+  url: GEOSERVER_BASE_URL,
   layers: 'flood-app:NOAA_Pred_Sts_Prj', // flood-app:noaa_predictions
   format: 'image/png',
   transparent: true,
@@ -100,7 +103,7 @@ const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
   {
     id: 'drainage_network',
     name: 'Drainage Network',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:Drainage_Network',
     format: 'image/png',
     transparent: true,
@@ -110,7 +113,7 @@ const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
   {
     id: 'inland_flood_map',
     name: 'Inland Flood Map',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:Inland_Flood_Map',
     format: 'image/png',
     transparent: true,
@@ -120,7 +123,7 @@ const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
   {
     id: 'watershades',
     name: 'Watersheds',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:Watersheds',
     format: 'image/png',
     transparent: true,
@@ -939,7 +942,7 @@ function MapComponent() {
       const paramsString = params.toString() + '&STYLES'
 
       // Use correct base URL with /flood-app/ workspace
-      const baseUrl = `${import.meta.env.VITE_GEOSERVER_BASE_URL.replace('/wms', '')}/flood-app/wms`
+      const baseUrl = `${GEOSERVER_BASE_URL.replace('/wms', '')}/flood-app/wms`
 
       const response = await fetch(
         `${baseUrl}?${paramsString}`,

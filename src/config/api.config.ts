@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://api-hazert.utilian.com',
     timeout: 30000,
     headers: {
         'Content-Type': 'application/json',
@@ -8,5 +8,5 @@ export const API_CONFIG = {
 
 // Optional: Create different configs for different flavors
 export const getApiBaseUrl = () => {
-    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    return import.meta.env.VITE_API_BASE_URL || 'https://api-hazert.utilian.com';
 };
