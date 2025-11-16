@@ -20,10 +20,11 @@ export function WaterLevelChart({ predictions, observations, title, loading, sta
 
     // Convert observations to chart format
     const observationsData: DataPoint[] = observations
+      .filter(item => item.v_navd !== null) // Filter out null values
       .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
       .map(item => ({
         x: new Date(item.t).getTime(),
-        y: item.v
+        y: item.v_navd as number // Safe to cast after filter
       }))
 
     // Convert predictions to chart format
@@ -31,7 +32,7 @@ export function WaterLevelChart({ predictions, observations, title, loading, sta
       .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
       .map(item => ({
         x: new Date(item.t).getTime(),
-        y: item.v
+        y: item.v_navd
       }))
 
     // Create series array
