@@ -1,5 +1,5 @@
 # Hazert
-
+ 
 A modern full-stack React application built with TanStack Start, featuring advanced routing, state management, and data fetching capabilities.
 
 ## 🚀 Tech Stack
