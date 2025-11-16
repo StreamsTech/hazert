@@ -480,7 +480,7 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
     predictions.forEach(pred => {
       timestampMap.set(pred.t, {
         time: pred.t,
-        prediction: pred.v,
+        prediction: pred.v_navd,
         observation: null
       })
     })
@@ -489,13 +489,13 @@ const StationModal: React.FC<StationModalProps> = ({ data, isVisible, onClose })
     observations.forEach(obs => {
       const existing = timestampMap.get(obs.t)
       if (existing) {
-        existing.observation = obs.v
+        existing.observation = obs.v_navd
       } else {
         // If observation timestamp doesn't exist in predictions, add it
         timestampMap.set(obs.t, {
           time: obs.t,
           prediction: null,
-          observation: obs.v
+          observation: obs.v_navd
         })
       }
     })
