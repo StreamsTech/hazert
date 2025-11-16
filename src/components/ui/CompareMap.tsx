@@ -59,12 +59,15 @@ interface CompareMapProps {
   onDisable?: () => void
 }
 
+// Fallback GeoServer URL (used if environment variable is not set)
+const GEOSERVER_BASE_URL = import.meta.env.VITE_GEOSERVER_BASE_URL || 'https://geoserver-hazert.utilian.com/geoserver/wms'
+
 // Default WMS layers configuration
 const DEFAULT_WMS_LAYERS: readonly WMSLayerConfig[] = [
   {
     id: 'water_surface_elevation',
     name: 'Water Surface Elevation',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:rendered_noaa_wse',
     format: 'image/png',
     transparent: true,
@@ -74,7 +77,7 @@ const DEFAULT_WMS_LAYERS: readonly WMSLayerConfig[] = [
   {
     id: 'water_surface_elevation_2nd',
     name: 'Water Surface Elevation 2nd Phase',
-    url: import.meta.env.VITE_GEOSERVER_BASE_URL,
+    url: GEOSERVER_BASE_URL,
     layers: 'flood-app:rendered_noaa_wse_2nd',
     format: 'image/png',
     transparent: true,
