@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 interface Layer {
   id: string
   name: string
+  group: number
 }
 
 interface ComparisonModalProps {
@@ -87,15 +88,27 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all hover:border-gray-400"
             >
               <option value="">Select left layer</option>
-              {layers.map((layer) => (
-                <option
-                  key={`left-${layer.id}`}
-                  value={layer.id}
-                  disabled={rightLayer === layer.id}
-                >
-                  {layer.name}
-                </option>
-              ))}
+              {layers.map((layer) => {
+                // Find the selected right layer's group
+                const selectedRightLayer = layers.find(l => l.id === rightLayer)
+                const rightLayerGroup = selectedRightLayer?.group
+
+                // Disable if:
+                // 1. Same layer as right (can't compare same layer)
+                // 2. Different group than right layer (can only compare within same group)
+                const isDisabled = rightLayer === layer.id ||
+                  (rightLayerGroup !== undefined && layer.group !== rightLayerGroup)
+
+                return (
+                  <option
+                    key={`left-${layer.id}`}
+                    value={layer.id}
+                    disabled={isDisabled}
+                  >
+                    {layer.name}
+                  </option>
+                )
+              })}
             </select>
           </div>
 
@@ -111,15 +124,27 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-all hover:border-gray-400"
             >
               <option value="">Select right layer</option>
-              {layers.map((layer) => (
-                <option
-                  key={`right-${layer.id}`}
-                  value={layer.id}
-                  disabled={leftLayer === layer.id}
-                >
-                  {layer.name}
-                </option>
-              ))}
+              {layers.map((layer) => {
+                // Find the selected left layer's group
+                const selectedLeftLayer = layers.find(l => l.id === leftLayer)
+                const leftLayerGroup = selectedLeftLayer?.group
+
+                // Disable if:
+                // 1. Same layer as left (can't compare same layer)
+                // 2. Different group than left layer (can only compare within same group)
+                const isDisabled = leftLayer === layer.id ||
+                  (leftLayerGroup !== undefined && layer.group !== leftLayerGroup)
+
+                return (
+                  <option
+                    key={`right-${layer.id}`}
+                    value={layer.id}
+                    disabled={isDisabled}
+                  >
+                    {layer.name}
+                  </option>
+                )
+              })}
             </select>
           </div>
 

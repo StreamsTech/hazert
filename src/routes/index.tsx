@@ -74,6 +74,7 @@ const TOGGLEABLE_WMS_LAYERS = [
     transparent: true,
     version: '1.3.0',
     zIndex: 501,
+    group: 1
   },
   {
     id: 'water_surface_elevation_second_phase',
@@ -84,6 +85,30 @@ const TOGGLEABLE_WMS_LAYERS = [
     transparent: true,
     version: '1.3.0',
     zIndex: 501,
+    group: 1
+  },
+  {
+    id: 'one_dimensional_geoswmm_flood_map',
+    name: '1D GEOSWMM Flood Map',
+    url: GEOSERVER_BASE_URL,
+    layers: 'flood-app:one_d_geoswmm',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 501,
+    group: 2
+  },
+
+  {
+    id: 'two_dimensional_geoswmm_flood_map',
+    name: '2D GEOSWMM Flood Map',
+    url: GEOSERVER_BASE_URL,
+    layers: 'flood-app:two_d_geoswmm',
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    zIndex: 501,
+    group: 2
   }
 ] as const
 
@@ -100,35 +125,58 @@ const PERMANENT_LAYER = {
 } as const
 
 const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
+  // OLD LAYERS - Commented out (Saudi Arabia region)
+  // {
+  //   id: 'drainage_network',
+  //   name: 'Drainage Network',
+  //   url: GEOSERVER_BASE_URL,
+  //   layers: 'flood-app:Drainage_Network',
+  //   format: 'image/png',
+  //   transparent: true,
+  //   version: '1.3.0',
+  //   zIndex: 504, // Above PERMANENT_LAYER (503)
+  // },
+  // {
+  //   id: 'inland_flood_map',
+  //   name: 'Inland Flood Map',
+  //   url: GEOSERVER_BASE_URL,
+  //   layers: 'flood-app:Inland_Flood_Map',
+  //   format: 'image/png',
+  //   transparent: true,
+  //   version: '1.3.0',
+  //   zIndex: 505, // Above drainage_network (504)
+  // },
+  // {
+  //   id: 'watershades',
+  //   name: 'Watersheds',
+  //   url: GEOSERVER_BASE_URL,
+  //   layers: 'flood-app:Watersheds',
+  //   format: 'image/png',
+  //   transparent: true,
+  //   version: '1.3.0',
+  //   zIndex: 506, // Above inland_flood_map (505)
+  // },
+
+  // NEW LAYERS - Virginia region (Active)
   {
-    id: 'drainage_network',
-    name: 'Drainage Network',
+    id: 'drainage_network_virginia',
+    name: 'Drainage Network Virginia',
     url: GEOSERVER_BASE_URL,
-    layers: 'flood-app:Drainage_Network',
+    layers: 'flood-app:drainage_network_virginia',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 504, // Above PERMANENT_LAYER (503)
+    zIndex: 507, // Above PERMANENT_LAYER (503)
   },
   {
-    id: 'inland_flood_map',
-    name: 'Inland Flood Map',
+    id: 'watersheds_virginia',
+    name: 'Watersheds Virginia',
     url: GEOSERVER_BASE_URL,
-    layers: 'flood-app:Inland_Flood_Map',
+    layers: 'flood-app:watersheds_virginia',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 505, // Above drainage_network (504)
-  },
-  {
-    id: 'watershades',
-    name: 'Watersheds',
-    url: GEOSERVER_BASE_URL,
-    layers: 'flood-app:Watersheds',
-    format: 'image/png',
-    transparent: true,
-    version: '1.3.0',
-    zIndex: 506, // Above inland_flood_map (505)
+    zIndex: 508, // Above inland_flood_map (505)
   },
 ] as const
 
@@ -142,10 +190,11 @@ const QUERYABLE_LAYERS_CONFIG: Record<string, { geoserverLayer: string; source: 
     geoserverLayer: 'flood-app:noaa_wse_second',
     source: 'dropdown'
   },
-  'inland_flood_map': {
-    geoserverLayer: 'flood-app:Inland_Flood_Map',
-    source: 'checkbox'
-  }
+  // OLD LAYER - Commented out (Saudi Arabia region)
+  // 'inland_flood_map': {
+  //   geoserverLayer: 'flood-app:Inland_Flood_Map',
+  //   source: 'checkbox'
+  // }
 }
 
 function LayerController({
@@ -213,11 +262,14 @@ function LayerController({
 
           {/* Other Checkbox Layers */}
           {TOGGLEABLE_CHECKBOX_WMS_LAYERS.map((layer) => {
-            // Layer center coordinates (from GetCapabilities)
+            // Layer center coordinates (from GetCapabilities) - COMMENTED OUT OLD LAYERS
             const layerCenters: Record<string, { lat: number; lon: number }> = {
-              'drainage_network': { lat: 21.614, lon: 39.322 },
-              'inland_flood_map': { lat: 21.547, lon: 39.220 },
-              'watershades': { lat: 21.614, lon: 39.322 }, // Assume same as drainage
+              // OLD LAYERS (Saudi Arabia region) - Commented out
+              // 'drainage_network': { lat: 21.614, lon: 39.322 },
+              // 'inland_flood_map': { lat: 21.547, lon: 39.220 },
+              // 'watershades': { lat: 21.614, lon: 39.322 },
+
+              // NEW LAYERS (Virginia region) - No zoom button needed
             }
 
             return (
