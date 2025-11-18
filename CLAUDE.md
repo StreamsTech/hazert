@@ -109,30 +109,106 @@ src/
 ### WMS Integration
 
 #### WMS Layers Configuration
+
+**Dropdown Layers (Coastal Flood Map - Bottom-left UI card):**
+The application displays 4 coastal flood layers in a dropdown selector, organized into 2 groups:
+
+**Group 1 - Coastal WSE Layers:**
 ```javascript
-const WMS_LAYERS = [
-  {
-    id: 'water_surface_elevation',
-    name: 'Water Surface Elevation',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
-    layers: 'flood-app:rendered_noaa_wse',
-    format: 'image/png',
-    transparent: true,
-    version: '1.3.0',
-    zIndex: 502
-  },
-  {
-    id: 'raster_geo_point',
-    name: 'NOAA Predictions',
-    url: 'http://202.4.127.189:5459/geoserver/wms',
-    layers: 'flood-app:NOAA_Pred_Sts_Prj',
-    format: 'image/png',
-    transparent: true,
-    version: '1.3.0',
-    zIndex: 503
-  }
-]
+{
+  id: 'water_surface_elevation',
+  name: 'Coastal WSE in 12 hours',
+  layers: 'flood-app:rendered_noaa_wse',
+  group: 1
+}
+{
+  id: 'water_surface_elevation_second_phase',
+  name: 'Coastal WSE in 24 hours',
+  layers: 'flood-app:noaa_wse_second',
+  group: 1
+}
 ```
+
+**Group 2 - GEOSWMM Layers:**
+```javascript
+{
+  id: 'one_dimensional_geoswmm_flood_map',
+  name: '1D GEOSWMM Flood Map',
+  layers: 'flood-app:one_d_geoswmm',
+  group: 2
+}
+{
+  id: 'two_dimensional_geoswmm_flood_map',
+  name: '2D GEOSWMM Flood Map',
+  layers: 'flood-app:two_d_geoswmm',
+  group: 2
+}
+```
+
+**Checkbox Layers (Bottom-left UI card - below dropdown):**
+
+**Active Layers (Virginia Region):**
+```javascript
+// PERMANENT_LAYER - Always visible first
+{
+  id: 'raster_geo_point',
+  name: 'NOAA Stations',
+  layers: 'flood-app:NOAA_Pred_Sts_Prj',
+  zIndex: 503
+}
+
+// TOGGLEABLE_CHECKBOX_WMS_LAYERS
+{
+  id: 'drainage_network_virginia',
+  name: 'Drainage Network Virginia',
+  layers: 'flood-app:drainage_network_virginia',
+  zIndex: 507
+}
+{
+  id: 'watersheds_virginia',
+  name: 'Watersheds Virginia',
+  layers: 'flood-app:watersheds_virginia',
+  zIndex: 508
+}
+```
+
+**Commented Out Layers (Saudi Arabia Region - Inactive):**
+```javascript
+// These layers are commented out in the codebase but preserved for future use:
+// - drainage_network (flood-app:Drainage_Network)
+// - inland_flood_map (flood-app:Inland_Flood_Map)
+// - watershades (flood-app:Watersheds)
+```
+
+**Layer Groups for Comparison Feature:**
+- Layers are organized into groups to ensure users can only compare layers within the same category
+- Group 1: Coastal WSE layers (12h and 24h predictions)
+- Group 2: GEOSWMM flood model outputs (1D and 2D)
+
+**Default State:**
+- Dropdown: First layer (Coastal WSE in 12 hours) selected by default
+- Checkboxes: All 3 checkbox layers (NOAA Stations, Drainage Network Virginia, Watersheds Virginia) checked by default
+
+**UI Layout (Bottom-left Card):**
+```
+┌─────────────────────────────────┐
+│  Coastal Flood Map              │
+│  ┌───────────────────────────┐  │
+│  │ ▼ Coastal WSE in 12 hours│  │ ← Dropdown
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+
+┌─────────────────────────────────┐
+│  ☑ NOAA Stations                │ ← Always visible (PERMANENT_LAYER)
+│  ☑ Drainage Network Virginia    │ ← New Virginia layer
+│  ☑ Watersheds Virginia          │ ← New Virginia layer
+└─────────────────────────────────┘
+```
+
+**Comparison Mode Rules:**
+- Users can only compare layers within the same group
+- Selecting a Group 1 layer disables all Group 2 layers in the opposite dropdown
+- Selecting a Group 2 layer disables all Group 1 layers in the opposite dropdown
 
 **Note**: Previous DEM layers (`NorflokDEM10m_Prj1`, `NorflokDEM10m_Prj2`) were removed due to projection issues. The new `rendered_noaa_wse` layer uses EPSG:4326 (standard WGS84 lat/lon) for compatibility.
 
