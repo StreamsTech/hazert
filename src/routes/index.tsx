@@ -89,7 +89,7 @@ const TOGGLEABLE_WMS_LAYERS = [
   },
   {
     id: 'one_dimensional_geoswmm_flood_map',
-    name: '1D GEOSWMM Flood Map',
+    name: 'GeoSWMM 1D Flood Map',
     url: GEOSERVER_BASE_URL,
     layers: 'flood-app:one_d_geoswmm',
     format: 'image/png',
@@ -101,7 +101,7 @@ const TOGGLEABLE_WMS_LAYERS = [
 
   {
     id: 'two_dimensional_geoswmm_flood_map',
-    name: '2D GEOSWMM Flood Map',
+    name: 'GeoSWMM 2D Flood Map',
     url: GEOSERVER_BASE_URL,
     layers: 'flood-app:two_d_geoswmm',
     format: 'image/png',
@@ -160,23 +160,23 @@ const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
   // NEW LAYERS - Virginia region (Active)
   {
     id: 'drainage_network_virginia',
-    name: 'Drainage Network Virginia',
+    name: 'Drainage Network',
     url: GEOSERVER_BASE_URL,
     layers: 'flood-app:drainage_network_virginia',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 507, // Above PERMANENT_LAYER (503)
+    zIndex: 502, // Above PERMANENT_LAYER (503)
   },
   {
     id: 'watersheds_virginia',
-    name: 'Watersheds Virginia',
+    name: 'Watersheds',
     url: GEOSERVER_BASE_URL,
     layers: 'flood-app:watersheds_virginia',
     format: 'image/png',
     transparent: true,
     version: '1.3.0',
-    zIndex: 508, // Above inland_flood_map (505)
+    zIndex: 502, // Above inland_flood_map (505)
   },
 ] as const
 
@@ -188,6 +188,14 @@ const QUERYABLE_LAYERS_CONFIG: Record<string, { geoserverLayer: string; source: 
   },
   'water_surface_elevation_second_phase': {
     geoserverLayer: 'flood-app:noaa_wse_second',
+    source: 'dropdown'
+  },
+  'one_dimensional_geoswmm_flood_map': {
+    geoserverLayer: 'flood-app:one_d_geoswmm',
+    source: 'dropdown'
+  },
+  'two_dimensional_geoswmm_flood_map': {
+    geoserverLayer: 'flood-app:two_d_geoswmm',
     source: 'dropdown'
   },
   // OLD LAYER - Commented out (Saudi Arabia region)
@@ -229,7 +237,7 @@ function LayerController({
     >
       {/* Container 1: Title + Dropdown */}
       <div className="bg-white p-4 rounded-md shadow-md">
-        <h3 className="font-medium mb-3 text-sm text-gray-800">Coastal Flood Map</h3>
+        <h3 className="font-medium mb-3 text-sm text-gray-800">Flood Maps</h3>
 
         {/* WMS Layer Dropdown */}
         <select
@@ -785,10 +793,10 @@ function MapComponent() {
     ),
   })
 
-  // Calculate if pen mode should be disabled (checks both dropdown and checkbox queryable layers)
+  // Calculate if pen mode should be disabled (checks dropdown queryable layers)
   const hasDropdownLayer = Object.values(layerVisibility).some(visible => visible)
-  const hasInlandFloodMap = checkboxLayerVisibility['inland_flood_map']
-  const isPenModeDisabled = !hasDropdownLayer && !hasInlandFloodMap
+  // const hasInlandFloodMap = checkboxLayerVisibility['inland_flood_map'] // OLD LAYER - Commented out (Saudi Arabia region)
+  const isPenModeDisabled = !hasDropdownLayer // Pen mode enabled only when a dropdown layer is selected
 
   // Modal and station click state
   const [clickParams, setClickParams] = useState<StationClickParams | null>(null)
