@@ -121,7 +121,7 @@ const PERMANENT_LAYER = {
   format: 'image/png',
   transparent: true,
   version: '1.3.0',
-  zIndex: 505,
+  zIndex: 503,
 } as const
 
 const TOGGLEABLE_CHECKBOX_WMS_LAYERS = [
