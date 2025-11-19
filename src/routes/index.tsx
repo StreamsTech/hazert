@@ -96,7 +96,7 @@ const TOGGLEABLE_WMS_LAYERS = [
     transparent: true,
     version: '1.3.0',
     zIndex: 501,
-    group: 2
+    group: 1
   },
 
   {
@@ -108,7 +108,7 @@ const TOGGLEABLE_WMS_LAYERS = [
     transparent: true,
     version: '1.3.0',
     zIndex: 501,
-    group: 2
+    group: 1
   }
 ] as const
 
