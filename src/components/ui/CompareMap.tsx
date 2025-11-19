@@ -99,9 +99,9 @@ const getLayerColor = (layerName: string): string => {
   } else if (layerName.includes('12 hours')) {
     return '#FAB12F' // Saddle brown for 12 hours
   } else if (layerName.includes('1D')) {
-    return '#9AD0C2' // Saddle brown for 12 hours
+    return '#9AD0C2' // Saddle Green for 1D
   } else if (layerName.includes('2D')) {
-    return '#AA60C8' // Saddle brown for 12 hours
+    return '#AA60C8' // Purple for 2D
   }
   return '#6B7280' // Default gray fallback
 }
