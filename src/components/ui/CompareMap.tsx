@@ -94,10 +94,14 @@ interface MapLegendProps {
 
 // Helper function to get color based on layer name
 const getLayerColor = (layerName: string): string => {
-  if (layerName.includes('24 hours') || layerName.includes('2D')) {
+  if (layerName.includes('24 hours')) {
     return '#abd9e9' // Dark navy blue for 24 hours
-  } else if (layerName.includes('12 hours') || layerName.includes('1D')) {
+  } else if (layerName.includes('12 hours')) {
     return '#FAB12F' // Saddle brown for 12 hours
+  } else if (layerName.includes('1D')) {
+    return '#9AD0C2' // Saddle brown for 12 hours
+  } else if (layerName.includes('2D')) {
+    return '#AA60C8' // Saddle brown for 12 hours
   }
   return '#6B7280' // Default gray fallback
 }
