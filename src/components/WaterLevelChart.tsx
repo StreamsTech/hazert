@@ -21,17 +21,17 @@ export function WaterLevelChart({ predictions, observations, title, loading, sta
     // Convert observations to chart format
     const observationsData: DataPoint[] = observations
       .filter(item => item.v_navd !== null) // Filter out null values
-      .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+      .sort((a, b) => new Date(a.t + 'Z').getTime() - new Date(b.t + 'Z').getTime())
       .map(item => ({
-        x: new Date(item.t).getTime(),
+        x: new Date(item.t + 'Z').getTime(), // Append 'Z' to treat as UTC
         y: item.v_navd as number // Safe to cast after filter
       }))
 
     // Convert predictions to chart format
     const predictionsData: DataPoint[] = predictions
-      .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+      .sort((a, b) => new Date(a.t + 'Z').getTime() - new Date(b.t + 'Z').getTime())
       .map(item => ({
-        x: new Date(item.t).getTime(),
+        x: new Date(item.t + 'Z').getTime(), // Append 'Z' to treat as UTC
         y: item.v_navd
       }))
 
