@@ -96,7 +96,7 @@ export function WaterLevelChart({ predictions, observations, title, loading, sta
         format: 'yyyy-MM-dd HH:mm'
       },
       title: {
-        text: 'Time'
+        text: 'Time (GMT)'
       },
       crosshairs: {
         show: true,
