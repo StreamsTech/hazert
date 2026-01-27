@@ -13,3 +13,4 @@ todos.json
 .claude/
 .claude/settings.local.json
 requirements/
+docs/
