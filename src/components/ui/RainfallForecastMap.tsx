@@ -307,7 +307,7 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     return () => clearInterval(intervalId)
   }, [isPlaying, playbackSpeed, data])
 
-  // Get rainfall value at specific lat/lng by finding nearest grid cell with interpolation
+  // Get rainfall value at specific lat/lng by finding which grid square was clicked
   const getRainfallAtLocation = (
     lat: number,
     lng: number,
@@ -338,56 +338,18 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
       }
     })
 
-    // Check if click is within reasonable bounds (within 1.5 degrees)
-    if (minLatDist > 1.5 || minLonDist > 1.5) {
-      return null // Too far from any grid point
+    // Check if click is within this grid cell's bounds (0.125° = half of 0.25° grid spacing)
+    // Each square is 25km × 25km (0.25° × 0.25°)
+    const halfCell = 0.125
+    if (minLatDist > halfCell || minLonDist > halfCell) {
+      return 0 // Outside any grid cell
     }
 
-    // Check center point first
-    const centerValue = frame.z[nearestLatIdx]?.[nearestLonIdx]
-    if (centerValue && centerValue > 0) {
-      return centerValue
-    }
+    // Get the exact value from this grid cell
+    const rainfallValue = frame.z[nearestLatIdx]?.[nearestLonIdx]
 
-    // If center has no data, check surrounding neighbors in 5x5 grid (2-cell radius, 24 neighbors)
-    // This better matches the visual blur area (radius 50-60 pixels)
-    const neighbors: Array<{ value: number; distance: number }> = []
-
-    for (let latOffset = -2; latOffset <= 2; latOffset++) {
-      for (let lonOffset = -2; lonOffset <= 2; lonOffset++) {
-        const latIdx = nearestLatIdx + latOffset
-        const lonIdx = nearestLonIdx + lonOffset
-
-        if (latIdx >= 0 && latIdx < grid.lat.length && lonIdx >= 0 && lonIdx < grid.lon.length) {
-          const value = frame.z[latIdx]?.[lonIdx]
-          if (value && value > 0) {
-            // Calculate distance from clicked point for weighted average
-            const distance = Math.sqrt(latOffset * latOffset + lonOffset * lonOffset)
-            neighbors.push({ value, distance })
-          }
-        }
-      }
-    }
-
-    // If we found rainfall in nearby cells, return weighted average
-    // Closer cells get more weight (inverse distance weighting)
-    if (neighbors.length > 0) {
-      let weightedSum = 0
-      let totalWeight = 0
-
-      neighbors.forEach(({ value, distance }) => {
-        // Weight = 1 / (distance + 0.1) to avoid division by zero
-        const weight = 1 / (distance + 0.1)
-        weightedSum += value * weight
-        totalWeight += weight
-      })
-
-      const weightedAverage = weightedSum / totalWeight
-      return weightedAverage
-    }
-
-    // No rainfall data found in area
-    return 0
+    // Return the exact value (or 0 if no data)
+    return rainfallValue && rainfallValue > 0 ? rainfallValue : 0
   }
 
 
@@ -510,7 +472,7 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
             bounds={cell.bounds}
             pathOptions={{
               fillColor: cell.color,
-              fillOpacity: 0.7,
+              fillOpacity: 0.35, // Reduced from 0.7 to see basemap
               color: cell.color, // Border color same as fill
               weight: 0, // No border
               stroke: false // Disable stroke completely
