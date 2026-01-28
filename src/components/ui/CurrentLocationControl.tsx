@@ -83,7 +83,7 @@ export const CurrentLocationControl: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="current-location-button-prevent-click absolute top-[248px] right-4 z-[1001]"
+      className="current-location-button-prevent-click absolute top-[304px] right-4 z-[1001]"
     >
       <button
         onClick={handleGetCurrentLocation}

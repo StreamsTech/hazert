@@ -10,6 +10,8 @@ import { WaterLevelChart } from '../components/WaterLevelChart'
 import { ComparisonButton } from '../components/ui/ComparisonButton'
 import { ComparisonModal } from '../components/ui/ComparisonModal'
 import { CompareMap } from '../components/ui/CompareMap'
+import { RainfallForecastButton } from '../components/ui/RainfallForecastButton'
+import { RainfallForecastMap } from '../components/ui/RainfallForecastMap'
 import { FullscreenControl } from '../components/ui/FullscreenControl'
 import { CurrentLocationControl } from '../components/ui/CurrentLocationControl'
 import { NotificationControl } from '../components/ui/NotificationControl'
@@ -816,6 +818,9 @@ function MapComponent() {
   const [comparisonRightLayer, setComparisonRightLayer] = useState<string | null>(null)
   const [showComparisonModal, setShowComparisonModal] = useState(false)
 
+  // Rainfall forecast mode state
+  const [rainfallForecastMode, setRainfallForecastMode] = useState(false)
+
   // Notification toast state
   const [showToast, setShowToast] = useState(false)
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
@@ -872,6 +877,18 @@ function MapComponent() {
     setComparisonLeftLayer(null)
     setComparisonRightLayer(null)
     console.log('🚫 Comparison mode disabled')
+  }
+
+  // Handle rainfall forecast enable
+  const handleRainfallForecastEnable = () => {
+    setRainfallForecastMode(true)
+    console.log('✅ Rainfall forecast mode enabled')
+  }
+
+  // Handle rainfall forecast disable
+  const handleRainfallForecastDisable = () => {
+    setRainfallForecastMode(false)
+    console.log('🚫 Rainfall forecast mode disabled')
   }
 
   // Handle notification sent
@@ -1233,7 +1250,7 @@ function MapComponent() {
       modalVisible ? 'h-1/2' : 'h-full'
     }`}>
       {/* Hamburger Menu Button (top-left corner) */}
-      {!comparisonMode && (
+      {!comparisonMode && !rainfallForecastMode && (
         <button
           onClick={() => setIsDrawerOpen(true)}
           className="absolute top-4 left-4 z-[1001] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 hover:bg-white transition-colors"
@@ -1243,8 +1260,11 @@ function MapComponent() {
         </button>
       )}
 
-      {/* Conditional Rendering: Comparison Mode vs Normal Map */}
-      {comparisonMode ? (
+      {/* Conditional Rendering: Rainfall Forecast vs Comparison Mode vs Normal Map */}
+      {rainfallForecastMode ? (
+        // Rainfall Forecast Mode: Show RainfallForecastMap
+        <RainfallForecastMap onDisable={handleRainfallForecastDisable} />
+      ) : comparisonMode ? (
         // Comparison Mode: Show CompareMap
         <CompareMap
           leftLayerId={comparisonLeftLayer}
@@ -1379,6 +1399,9 @@ function MapComponent() {
           {/* Comparison Button - Below Layer Controller */}
           <ComparisonButton onClick={() => setShowComparisonModal(true)} />
 
+          {/* Rainfall Forecast Button - Below Comparison Button */}
+          <RainfallForecastButton onClick={handleRainfallForecastEnable} />
+
           {/* Pen Mode Marker */}
           {penModeActive && markerPosition && pinIconInstance && (
             <Marker
@@ -1420,7 +1443,7 @@ function MapComponent() {
       )}
 
       {/* Fullscreen Control - Toggle fullscreen mode (positioned below Comparison button) */}
-      {!comparisonMode && <FullscreenControl />}
+      {!comparisonMode && !rainfallForecastMode && <FullscreenControl />}
 
       {/* Comparison Modal */}
       <ComparisonModal
