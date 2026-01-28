@@ -1,36 +1,11 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Rectangle } from 'react-leaflet'
 import L from 'leaflet'
-import 'leaflet.heat'
 import { X, Loader2 } from 'lucide-react'
 import { useRainfallForecast } from '../../hooks/useRainfallForecast'
 import { RainfallLegend } from './RainfallLegend'
 import { RainfallTimeControl } from './RainfallTimeControl'
 import type { RainfallFrame, RainfallGrid, RainfallForecastMetadata } from '../../types/rainfall'
-
-export interface LegendItem {
-  color: string
-  label: string
-  description: string
-}
-
-// Extend Leaflet types for leaflet.heat
-declare module 'leaflet' {
-  function heatLayer(
-    latlngs: Array<[number, number, number]>,
-    options?: {
-      radius?: number
-      blur?: number
-      maxZoom?: number
-      max?: number
-      gradient?: Record<number, string>
-    }
-  ): L.Layer & {
-    setLatLngs(latlngs: Array<[number, number, number]>): void
-    addTo(map: L.Map): void
-    remove(): void
-  }
-}
 
 interface RainfallForecastMapProps {
   onDisable?: () => void
@@ -38,44 +13,105 @@ interface RainfallForecastMapProps {
 
 /**
  * Rainfall Forecast Map Component
- * Main visualization component for animated rainfall heatmap
+ * Main visualization component for animated rainfall grid
  *
  * Features:
  * - Fetches 72-hour rainfall forecast data
- * - Renders animated heatmap overlay using leaflet.heat
+ * - Renders rainfall as 25km × 25km square grid cells (matching 0.25° grid spacing)
  * - Provides playback controls (play/pause, speed, scrubbing)
- * - Displays color-coded legend
+ * - Displays continuous gradient legend
  * - Handles loading and error states
  *
  * Data Flow:
  * 1. Fetch data using useRainfallForecast hook
- * 2. Convert each frame's 2D rainfall matrix to heatmap points
- * 3. Update heatmap layer on frame change
- * 4. Animate through frames based on playback controls
+ * 2. Create grid of rectangles for each data point
+ * 3. Map rainfall values to colors using gradient
+ * 4. Update rectangle colors on frame change
+ * 5. Animate through frames based on playback controls
  */
+
+// Map rainfall value to color using gradient interpolation
+const getColorForRainfall = (value: number, maxValue: number): string => {
+  // Gradient color stops (same as before)
+  const gradientStops = [
+    { position: 0.00, color: '#30123b' }, // very dark purple
+    { position: 0.07, color: '#4145ab' }, // deep blue
+    { position: 0.14, color: '#4675ed' }, // blue
+    { position: 0.21, color: '#39a2fc' }, // light blue
+    { position: 0.29, color: '#1bcfd4' }, // cyan
+    { position: 0.36, color: '#24eca6' }, // green-cyan
+    { position: 0.43, color: '#61fc6c' }, // green
+    { position: 0.50, color: '#a4fc3b' }, // yellow-green / lime
+    { position: 0.57, color: '#d1e834' }, // yellow
+    { position: 0.64, color: '#f3c63a' }, // gold
+    { position: 0.71, color: '#fe9b2d' }, // orange
+    { position: 0.79, color: '#f36315' }, // deep orange
+    { position: 0.86, color: '#d93806' }, // red-orange
+    { position: 0.93, color: '#b11901' }, // dark red
+    { position: 1.00, color: '#7a0402' }  // very dark red
+  ]
+
+  // Normalize value to 0-1 range
+  const normalized = Math.min(value / maxValue, 1.0)
+
+  // Find the two stops to interpolate between
+  let lowerStop = gradientStops[0]
+  let upperStop = gradientStops[gradientStops.length - 1]
+
+  for (let i = 0; i < gradientStops.length - 1; i++) {
+    if (normalized >= gradientStops[i].position && normalized <= gradientStops[i + 1].position) {
+      lowerStop = gradientStops[i]
+      upperStop = gradientStops[i + 1]
+      break
+    }
+  }
+
+  // Linear interpolation between two colors
+  const ratio = (normalized - lowerStop.position) / (upperStop.position - lowerStop.position)
+
+  // Parse hex colors
+  const r1 = parseInt(lowerStop.color.slice(1, 3), 16)
+  const g1 = parseInt(lowerStop.color.slice(3, 5), 16)
+  const b1 = parseInt(lowerStop.color.slice(5, 7), 16)
+
+  const r2 = parseInt(upperStop.color.slice(1, 3), 16)
+  const g2 = parseInt(upperStop.color.slice(3, 5), 16)
+  const b2 = parseInt(upperStop.color.slice(5, 7), 16)
+
+  // Interpolate
+  const r = Math.round(r1 + (r2 - r1) * ratio)
+  const g = Math.round(g1 + (g2 - g1) * ratio)
+  const b = Math.round(b1 + (b2 - b1) * ratio)
+
+  return `rgb(${r}, ${g}, ${b})`
+}
 export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
   onDisable = () => console.log('Rainfall forecast disabled'),
 }) => {
   // Fetch rainfall forecast data
   const { data, isLoading, error } = useRainfallForecast()
 
-  // Map and heatmap layer refs
+  // Map ref
   const mapRef = useRef<L.Map | null>(null)
-  const heatmapLayerRef = useRef<L.Layer & { setLatLngs: (latlngs: Array<[number, number, number]>) => void } | null>(
-    null
-  )
 
   // Animation state
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(1000) // ms per frame
   const [isMapReady, setIsMapReady] = useState(false)
-  const [currentZoom, setCurrentZoom] = useState(6)
 
   // Rainfall tooltip state
   const [tooltipPosition, setTooltipPosition] = useState<[number, number] | null>(null)
   const [tooltipRainfall, setTooltipRainfall] = useState<number | null>(null)
   const [pinIconInstance, setPinIconInstance] = useState<L.Icon | null>(null)
+
+  // Grid cells state: array of { bounds, color, value } for each grid cell
+  interface GridCell {
+    bounds: [[number, number], [number, number]]
+    color: string
+    value: number
+  }
+  const [gridCells, setGridCells] = useState<GridCell[]>([])
 
   // Calculate rainfall statistics (min, max, 98th percentile)
   const rainfallStats = useMemo(() => {
@@ -115,63 +151,8 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     return { min, max, effectiveMax, allValues }
   }, [data])
 
-  // Calculate dynamic legend items based on data quantiles
-  const legendItems = useMemo(() => {
-    if (!data || !rainfallStats.allValues || rainfallStats.allValues.length === 0) return []
-
-    const { effectiveMax, allValues } = rainfallStats
-
-    // Generate 12 quantile-based buckets for equal data distribution
-    const numBuckets = 12
-    const legendBuckets: LegendItem[] = []
-
-    // Extract colors from our exact heatmap gradient (reversed order for legend display)
-    const gradientColors = [
-      '#7a0402', // 100% - very dark red
-      '#b11901', // 93% - dark red
-      '#d93806', // 86% - red-orange
-      '#f36315', // 79% - deep orange
-      '#fe9b2d', // 71% - orange
-      '#f3c63a', // 64% - gold
-      '#d1e834', // 57% - yellow
-      '#a4fc3b', // 50% - yellow-green
-      '#61fc6c', // 43% - green
-      '#24eca6', // 36% - green-cyan
-      '#1bcfd4', // 29% - cyan
-      '#39a2fc', // 21% - light blue
-    ]
-
-    for (let i = 0; i < numBuckets; i++) {
-      // Calculate quantile indices
-      const startIdx = Math.floor((i / numBuckets) * allValues.length)
-      const endIdx = Math.floor(((i + 1) / numBuckets) * allValues.length)
-
-      // Get quantile range values
-      const rangeMin = allValues[startIdx]
-      const rangeMax = i === numBuckets - 1 ? effectiveMax : allValues[endIdx - 1]
-
-      // Format labels with 3 decimal places for better precision
-      const label = `${rangeMin.toFixed(3)}-${rangeMax.toFixed(3)}`
-
-      // Determine description based on intensity
-      let description = 'Trace'
-      if (rangeMax >= 2.5) description = 'Extreme'
-      else if (rangeMax >= 1.8) description = 'Very Heavy'
-      else if (rangeMax >= 1.2) description = 'Heavy'
-      else if (rangeMax >= 0.6) description = 'Moderate'
-      else if (rangeMax >= 0.3) description = 'Light'
-      else if (rangeMax >= 0.1) description = 'Very Light'
-
-      legendBuckets.push({
-        color: gradientColors[i],
-        label,
-        description,
-      })
-    }
-
-    // Already in descending order (highest at top)
-    return legendBuckets
-  }, [data, rainfallStats])
+  // Legend data - just pass the max value for continuous gradient
+  const legendMaxValue = rainfallStats.effectiveMax
 
   // Load Leaflet CSS
   useEffect(() => {
@@ -191,25 +172,6 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     }
   }, [])
 
-  // Track zoom level changes and update heatmap settings
-  useEffect(() => {
-    if (!mapRef.current) return
-
-    const map = mapRef.current
-    const updateZoom = () => {
-      const newZoom = map.getZoom()
-      setCurrentZoom(newZoom)
-      // Update heatmap settings for new zoom level
-      updateHeatmapForZoom(newZoom)
-    }
-
-    map.on('zoomend', updateZoom)
-    updateZoom() // Initial zoom
-
-    return () => {
-      map.off('zoomend', updateZoom)
-    }
-  }, [isMapReady])
 
   // Handle map click to show rainfall tooltip
   useEffect(() => {
@@ -260,58 +222,48 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     setTooltipRainfall(rainfallValue)
   }, [currentFrameIndex, tooltipPosition, data])
 
-  // Initialize heatmap layer
+  // Generate and update grid cells when frame changes
   useEffect(() => {
-    if (!isMapReady || !mapRef.current || heatmapLayerRef.current) return
+    if (!data) return
 
-    try {
-      // Create heatmap layer with custom gradient
-      const heatLayer = L.heatLayer([], {
-        radius: 35,        // Increased from 25 for smoother appearance
-        blur: 25,          // Increased from 15 for better blending
-        maxZoom: 17,
-        max: 1.0,
-        minIntensity: 0,
-        maxIntensity: rainfallStats.effectiveMax, // Use 98th percentile as max
-        gradient: {
-          0.00: '#30123b', // very dark purple
-          0.07: '#4145ab', // deep blue
-          0.14: '#4675ed', // blue
-          0.21: '#39a2fc', // light blue
-          0.29: '#1bcfd4', // cyan
-          0.36: '#24eca6', // green-cyan
-          0.43: '#61fc6c', // green
-          0.50: '#a4fc3b', // yellow-green
-          0.57: '#d1e834', // yellow
-          0.64: '#f3c63a', // gold
-          0.71: '#fe9b2d', // orange
-          0.79: '#f36315', // deep orange
-          0.86: '#d93806', // red-orange
-          0.93: '#b11901', // dark red
-          1.00: '#7a0402'  // very dark red
-        }
-      } as any)
+    const currentFrame = data.frames[currentFrameIndex]
+    if (!currentFrame) return
 
-      heatLayer.addTo(mapRef.current)
-      heatmapLayerRef.current = heatLayer
+    const cells: GridCell[] = []
+    const maxValue = rainfallStats.effectiveMax
 
-      console.log('✅ Heatmap layer initialized')
-    } catch (err) {
-      console.error('❌ Error initializing heatmap layer:', err)
-    }
+    // Create a rectangle for each grid point
+    data.grid.lat.forEach((lat, latIndex) => {
+      data.grid.lon.forEach((lon, lonIndex) => {
+        const rainfallValue = currentFrame.z[latIndex]?.[lonIndex]
 
-    // Cleanup function
-    return () => {
-      if (heatmapLayerRef.current && mapRef.current) {
-        try {
-          heatmapLayerRef.current.remove()
-          heatmapLayerRef.current = null
-        } catch (err) {
-          console.warn('Error cleaning up heatmap layer:', err)
-        }
-      }
-    }
-  }, [isMapReady, rainfallStats])
+        // Skip cells with no data or zero rainfall
+        if (!rainfallValue || rainfallValue <= 0) return
+
+        // Calculate rectangle bounds (0.25° grid spacing = 0.125° on each side)
+        const halfCell = 0.125
+        const bounds: [[number, number], [number, number]] = [
+          [lat - halfCell, lon - halfCell], // Southwest corner
+          [lat + halfCell, lon + halfCell]  // Northeast corner
+        ]
+
+        // Get color for this rainfall value
+        const color = getColorForRainfall(rainfallValue, maxValue)
+
+        cells.push({
+          bounds,
+          color,
+          value: rainfallValue
+        })
+      })
+    })
+
+    setGridCells(cells)
+
+    console.log(`📍 Frame ${currentFrameIndex + 1}/${data.frames.length}: ${currentFrame.time}`, {
+      cells: cells.length,
+    })
+  }, [currentFrameIndex, data, rainfallStats])
 
   // Fit map bounds to data coverage area when data loads
   useEffect(() => {
@@ -340,21 +292,6 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     }
   }, [isMapReady, data])
 
-  // Update heatmap when frame changes
-  useEffect(() => {
-    if (!heatmapLayerRef.current || !data) return
-
-    const currentFrame = data.frames[currentFrameIndex]
-    if (!currentFrame) return
-
-    const heatmapPoints = convertFrameToHeatmapPoints(currentFrame, data.grid, data.metadata)
-
-    heatmapLayerRef.current.setLatLngs(heatmapPoints)
-
-    console.log(`📍 Frame ${currentFrameIndex + 1}/${data.frames.length}: ${currentFrame.time}`, {
-      points: heatmapPoints.length,
-    })
-  }, [currentFrameIndex, data])
 
   // Animation loop
   useEffect(() => {
@@ -453,32 +390,6 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     return 0
   }
 
-  // Convert frame data to heatmap points
-  const convertFrameToHeatmapPoints = (
-    frame: RainfallFrame,
-    grid: RainfallGrid,
-    metadata: RainfallForecastMetadata
-  ): Array<[number, number, number]> => {
-    const points: Array<[number, number, number]> = []
-    const maxRainfall = rainfallStats.effectiveMax // Use 98th percentile for normalization
-
-    grid.lat.forEach((lat, latIndex) => {
-      grid.lon.forEach((lon, lonIndex) => {
-        const rainfallValue = frame.z[latIndex]?.[lonIndex]
-
-        // Skip null/zero/negative values
-        if (!rainfallValue || rainfallValue <= 0) return
-
-        // Normalize to 0-1 range
-        const intensity = Math.min(rainfallValue / maxRainfall, 1.0)
-
-        // leaflet.heat format: [lat, lng, intensity]
-        points.push([lat, lon, intensity])
-      })
-    })
-
-    return points
-  }
 
   // Format timestamp to 12-hour format: "Jan 26, 2026, 08:00 AM"
   const formatTimestamp = (isoString: string): string => {
@@ -513,84 +424,6 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     setPlaybackSpeed(speed)
   }
 
-  // Calculate zoom-dependent heatmap settings based on user testing
-  const getHeatmapSettings = (zoom: number): { radius: number; blur: number } => {
-    // Based on user testing:
-    // Zoom 5: R:50 B:0
-    // Zoom 7: R:55 B:0
-    // Zoom 9: R:60 B:15
-    // Pattern: As zoom increases, radius increases, blur increases slowly
-
-    if (zoom <= 5) {
-      return { radius: 50, blur: 0 }
-    } else if (zoom <= 7) {
-      return { radius: 55, blur: 0 }
-    } else if (zoom <= 9) {
-      return { radius: 60, blur: 15 }
-    } else if (zoom <= 11) {
-      return { radius: 50, blur: 25 }
-    } else if (zoom <= 13) {
-      return { radius: 40, blur: 28 }
-    } else if (zoom <= 15) {
-      return { radius: 35, blur: 25 }
-    } else {
-      return { radius: 30, blur: 20 }
-    }
-  }
-
-  // Update heatmap settings when zoom changes
-  const updateHeatmapForZoom = (zoom: number) => {
-    if (!heatmapLayerRef.current || !mapRef.current || !data) return
-
-    try {
-      const settings = getHeatmapSettings(zoom)
-      const map = mapRef.current
-
-      // Remove old layer
-      heatmapLayerRef.current.remove()
-
-      // Create new layer with zoom-appropriate settings
-      const layer = L.heatLayer([], {
-        radius: settings.radius,
-        blur: settings.blur,
-        maxZoom: 17,
-        max: 1.0,
-        minIntensity: 0,
-        maxIntensity: rainfallStats.effectiveMax,
-        gradient: {
-          0.0: '#30123b',
-          0.07: '#4145ab',
-          0.14: '#4675ed',
-          0.21: '#39a2fc',
-          0.29: '#1bcfd4',
-          0.36: '#24eca6',
-          0.43: '#61fc6c',
-          0.5: '#a4fc3b',
-          0.57: '#d1e834',
-          0.64: '#f3c63a',
-          0.71: '#fe9b2d',
-          0.79: '#f36315',
-          0.86: '#d93806',
-          0.93: '#b11901',
-          1.0: '#7a0402',
-        },
-      } as any)
-
-      layer.addTo(map)
-      heatmapLayerRef.current = layer
-
-      // Re-render current frame
-      const currentFrame = data.frames[currentFrameIndex]
-      if (currentFrame) {
-        const points = convertFrameToHeatmapPoints(currentFrame, data.grid, data.metadata)
-        layer.setLatLngs(points)
-      }
-
-      console.log(`🔄 Heatmap updated for zoom ${zoom}: radius=${settings.radius}, blur=${settings.blur}`)
-    } catch (err) {
-      console.error('❌ Error updating heatmap for zoom:', err)
-    }
-  }
 
   // Default center: Norfolk/Moyock area, Virginia
   // Using zoom 6 to show broader region for rainfall data coverage
@@ -670,6 +503,21 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
             subdomains="https://dev.hazert.utilian.com/"
         />*/}
 
+        {/* Rainfall Grid Squares - 25km x 25km cells */}
+        {gridCells.map((cell, index) => (
+          <Rectangle
+            key={`grid-${index}`}
+            bounds={cell.bounds}
+            pathOptions={{
+              fillColor: cell.color,
+              fillOpacity: 0.7,
+              color: cell.color, // Border color same as fill
+              weight: 0, // No border
+              stroke: false // Disable stroke completely
+            }}
+          />
+        ))}
+
         {/* Rainfall Tooltip Marker */}
         {tooltipPosition && pinIconInstance && (
           <Marker
@@ -729,7 +577,7 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
       </div>
 
       {/* Legend - Below Exit Button */}
-      <RainfallLegend items={legendItems} />
+      <RainfallLegend maxValue={legendMaxValue} />
 
       {/* Time Control */}
       <RainfallTimeControl

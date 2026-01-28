@@ -22,7 +22,10 @@
       "WebFetch(domain:geoserver-dev.hazert.utilian.com)",
       "Bash(git log:*)",
       "Bash(pnpm add:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm list:*)",
+      "Bash(pnpm run build:*)"
     ],
     "deny": [],
     "ask": []
