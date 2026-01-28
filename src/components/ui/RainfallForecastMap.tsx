@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react'
-import { MapContainer, TileLayer } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.heat'
 import { X, Loader2 } from 'lucide-react'
@@ -71,6 +71,11 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState(1000) // ms per frame
   const [isMapReady, setIsMapReady] = useState(false)
   const [currentZoom, setCurrentZoom] = useState(6)
+
+  // Rainfall tooltip state
+  const [tooltipPosition, setTooltipPosition] = useState<[number, number] | null>(null)
+  const [tooltipRainfall, setTooltipRainfall] = useState<number | null>(null)
+  const [pinIconInstance, setPinIconInstance] = useState<L.Icon | null>(null)
 
   // Calculate rainfall statistics (min, max, 98th percentile)
   const rainfallStats = useMemo(() => {
@@ -173,6 +178,19 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     import('leaflet/dist/leaflet.css')
   }, [])
 
+  // Create custom pin icon (reuse from index.tsx)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const icon = L.icon({
+        iconUrl: '/images/pin.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      })
+      setPinIconInstance(icon)
+    }
+  }, [])
+
   // Track zoom level changes and update heatmap settings
   useEffect(() => {
     if (!mapRef.current) return
@@ -192,6 +210,55 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
       map.off('zoomend', updateZoom)
     }
   }, [isMapReady])
+
+  // Handle map click to show rainfall tooltip
+  useEffect(() => {
+    if (!mapRef.current || !data) return
+
+    const map = mapRef.current
+    const handleMapClick = (e: L.LeafletMouseEvent) => {
+      // Check if click came from close button or other UI element
+      const target = e.originalEvent?.target as HTMLElement
+      if (target && (target.closest('.rainfall-tooltip-close') || target.closest('.leaflet-popup'))) {
+        return // Ignore clicks on tooltip/close button
+      }
+
+      const { lat, lng } = e.latlng
+
+      // Get rainfall value at clicked location for current frame
+      const currentFrame = data.frames[currentFrameIndex]
+      if (!currentFrame) return
+
+      const rainfallValue = getRainfallAtLocation(lat, lng, currentFrame, data.grid)
+
+      if (rainfallValue !== null) {
+        setTooltipPosition([lat, lng])
+        setTooltipRainfall(rainfallValue)
+      } else {
+        // Clicked outside data bounds
+        setTooltipPosition([lat, lng])
+        setTooltipRainfall(null)
+      }
+    }
+
+    map.on('click', handleMapClick)
+
+    return () => {
+      map.off('click', handleMapClick)
+    }
+  }, [isMapReady, data, currentFrameIndex])
+
+  // Update tooltip rainfall value when frame changes
+  useEffect(() => {
+    if (!tooltipPosition || !data) return
+
+    const [lat, lng] = tooltipPosition
+    const currentFrame = data.frames[currentFrameIndex]
+    if (!currentFrame) return
+
+    const rainfallValue = getRainfallAtLocation(lat, lng, currentFrame, data.grid)
+    setTooltipRainfall(rainfallValue)
+  }, [currentFrameIndex, tooltipPosition, data])
 
   // Initialize heatmap layer
   useEffect(() => {
@@ -303,6 +370,89 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     return () => clearInterval(intervalId)
   }, [isPlaying, playbackSpeed, data])
 
+  // Get rainfall value at specific lat/lng by finding nearest grid cell with interpolation
+  const getRainfallAtLocation = (
+    lat: number,
+    lng: number,
+    frame: RainfallFrame,
+    grid: RainfallGrid
+  ): number | null => {
+    // Find nearest grid indices
+    let nearestLatIdx = 0
+    let nearestLonIdx = 0
+    let minLatDist = Infinity
+    let minLonDist = Infinity
+
+    // Find nearest latitude index
+    grid.lat.forEach((gridLat, idx) => {
+      const dist = Math.abs(gridLat - lat)
+      if (dist < minLatDist) {
+        minLatDist = dist
+        nearestLatIdx = idx
+      }
+    })
+
+    // Find nearest longitude index
+    grid.lon.forEach((gridLon, idx) => {
+      const dist = Math.abs(gridLon - lng)
+      if (dist < minLonDist) {
+        minLonDist = dist
+        nearestLonIdx = idx
+      }
+    })
+
+    // Check if click is within reasonable bounds (within 1.5 degrees)
+    if (minLatDist > 1.5 || minLonDist > 1.5) {
+      return null // Too far from any grid point
+    }
+
+    // Check center point first
+    const centerValue = frame.z[nearestLatIdx]?.[nearestLonIdx]
+    if (centerValue && centerValue > 0) {
+      return centerValue
+    }
+
+    // If center has no data, check surrounding neighbors in 5x5 grid (2-cell radius, 24 neighbors)
+    // This better matches the visual blur area (radius 50-60 pixels)
+    const neighbors: Array<{ value: number; distance: number }> = []
+
+    for (let latOffset = -2; latOffset <= 2; latOffset++) {
+      for (let lonOffset = -2; lonOffset <= 2; lonOffset++) {
+        const latIdx = nearestLatIdx + latOffset
+        const lonIdx = nearestLonIdx + lonOffset
+
+        if (latIdx >= 0 && latIdx < grid.lat.length && lonIdx >= 0 && lonIdx < grid.lon.length) {
+          const value = frame.z[latIdx]?.[lonIdx]
+          if (value && value > 0) {
+            // Calculate distance from clicked point for weighted average
+            const distance = Math.sqrt(latOffset * latOffset + lonOffset * lonOffset)
+            neighbors.push({ value, distance })
+          }
+        }
+      }
+    }
+
+    // If we found rainfall in nearby cells, return weighted average
+    // Closer cells get more weight (inverse distance weighting)
+    if (neighbors.length > 0) {
+      let weightedSum = 0
+      let totalWeight = 0
+
+      neighbors.forEach(({ value, distance }) => {
+        // Weight = 1 / (distance + 0.1) to avoid division by zero
+        const weight = 1 / (distance + 0.1)
+        weightedSum += value * weight
+        totalWeight += weight
+      })
+
+      const weightedAverage = weightedSum / totalWeight
+      return weightedAverage
+    }
+
+    // No rainfall data found in area
+    return 0
+  }
+
   // Convert frame data to heatmap points
   const convertFrameToHeatmapPoints = (
     frame: RainfallFrame,
@@ -328,6 +478,24 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     })
 
     return points
+  }
+
+  // Format timestamp to 12-hour format: "Jan 26, 2026, 08:00 AM"
+  const formatTimestamp = (isoString: string): string => {
+    try {
+      const date = new Date(isoString)
+      const options: Intl.DateTimeFormatOptions = {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }
+      return date.toLocaleString('en-US', options)
+    } catch (error) {
+      return isoString
+    }
   }
 
   // Handlers
@@ -501,6 +669,51 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
             maxZoom={21}
             subdomains="https://dev.hazert.utilian.com/"
         />*/}
+
+        {/* Rainfall Tooltip Marker */}
+        {tooltipPosition && pinIconInstance && (
+          <Marker
+            position={tooltipPosition}
+            icon={pinIconInstance}
+            eventHandlers={{
+              add: (e) => {
+                // Open popup when marker is added
+                e.target.openPopup()
+              }
+            }}
+          >
+            <Popup closeButton={false} autoClose={false} closeOnClick={false}>
+              <div className="text-center min-w-[130px] relative pt-5">
+                {/* Close button - Row 1 (top right) */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setTooltipPosition(null)
+                    setTooltipRainfall(null)
+                  }}
+                  className="rainfall-tooltip-close absolute top-0 right-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs z-10"
+                  title="Close"
+                >
+                  ✕
+                </button>
+
+                {/* Time - Row 2 (center) */}
+                <div className="text-xs font-medium text-gray-500 mb-1">
+                  🕒 {data ? formatTimestamp(data.frames[currentFrameIndex]?.time || '') : 'Loading...'}
+                </div>
+
+                {/* Value - Row 3 (center) */}
+                {tooltipRainfall !== null ? (
+                  <div className="text-lg font-bold text-blue-600">
+                    {tooltipRainfall.toFixed(3)} mm/hr
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400">No rainfall data</div>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        )}
       </MapContainer>
 
       {/* Exit Button - Top Right */}
