@@ -881,6 +881,9 @@ function MapComponent() {
 
   // Handle rainfall forecast enable
   const handleRainfallForecastEnable = () => {
+    // Close any open station modal
+    setModalVisible(false)
+    setSelectedStation(null)
     setRainfallForecastMode(true)
     console.log('✅ Rainfall forecast mode enabled')
   }
@@ -1247,7 +1250,7 @@ function MapComponent() {
 
   return (
     <div className={`w-full relative transition-all duration-300 ${
-      modalVisible ? 'h-1/2' : 'h-full'
+      modalVisible && !rainfallForecastMode && !comparisonMode ? 'h-1/2' : 'h-full'
     }`}>
       {/* Hamburger Menu Button (top-left corner) */}
       {!comparisonMode && !rainfallForecastMode && (

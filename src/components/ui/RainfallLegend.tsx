@@ -1,29 +1,40 @@
 import { Droplets } from 'lucide-react'
 
+export interface LegendItem {
+  color: string
+  label: string
+  description: string
+}
+
+interface RainfallLegendProps {
+  items: LegendItem[]
+}
+
 /**
  * Rainfall Legend Component
- * Displays color gradient scale for rainfall intensity
+ * Displays dynamic color gradient scale for rainfall intensity
  * Position: Right side of the map
  * Unit: mm/hr (millimeters per hour)
  *
- * Color Scale:
- * - 0-5 mm/hr: Light green (#A8E6CF) - Light rain
- * - 5-10 mm/hr: Yellow (#FFD700) - Moderate rain
- * - 10-20 mm/hr: Orange (#FF8C00) - Heavy rain
- * - 20-40 mm/hr: Dark orange (#FF4500) - Very heavy rain
- * - 40+ mm/hr: Dark red (#8B0000) - Extreme rainfall
+ * The legend is dynamically generated based on quantile clustering
+ * of actual rainfall data, with 98th percentile outlier handling.
  */
-export const RainfallLegend: React.FC = () => {
-  const legendItems = [
-    { color: '#8B0000', label: '40+', description: 'Extreme' },
-    { color: '#FF4500', label: '20-40', description: 'Very Heavy' },
-    { color: '#FF8C00', label: '10-20', description: 'Heavy' },
-    { color: '#FFD700', label: '5-10', description: 'Moderate' },
-    { color: '#A8E6CF', label: '0-5', description: 'Light' },
-  ]
+export const RainfallLegend: React.FC<RainfallLegendProps> = ({ items }) => {
+  // Show loading state if no items
+  if (!items || items.length === 0) {
+    return (
+      <div className="absolute top-[76px] right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 min-w-[180px]">
+        <div className="flex items-center gap-2 mb-3">
+          <Droplets className="w-4 h-4 text-blue-600" />
+          <h3 className="text-sm font-semibold text-gray-800">Rainfall</h3>
+        </div>
+        <p className="text-xs text-gray-500">Calculating...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="absolute top-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 min-w-[160px]">
+    <div className="absolute top-[76px] right-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 min-w-[180px]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <Droplets className="w-4 h-4 text-blue-600" />
@@ -32,7 +43,7 @@ export const RainfallLegend: React.FC = () => {
 
       {/* Legend Items */}
       <div className="space-y-2">
-        {legendItems.map((item, index) => (
+        {items.map((item, index) => (
           <div key={index} className="flex items-center gap-2">
             <div
               className="w-6 h-4 rounded border border-gray-300 flex-shrink-0"

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo } from 'react'
 import { MapContainer, TileLayer } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.heat'
@@ -7,6 +7,12 @@ import { useRainfallForecast } from '../../hooks/useRainfallForecast'
 import { RainfallLegend } from './RainfallLegend'
 import { RainfallTimeControl } from './RainfallTimeControl'
 import type { RainfallFrame, RainfallGrid, RainfallForecastMetadata } from '../../types/rainfall'
+
+export interface LegendItem {
+  color: string
+  label: string
+  description: string
+}
 
 // Extend Leaflet types for leaflet.heat
 declare module 'leaflet' {
@@ -64,11 +70,128 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(1000) // ms per frame
   const [isMapReady, setIsMapReady] = useState(false)
+  const [currentZoom, setCurrentZoom] = useState(6)
+
+  // Calculate rainfall statistics (min, max, 98th percentile)
+  const rainfallStats = useMemo(() => {
+    if (!data) return { min: 0, max: 4.0, effectiveMax: 4.0 }
+
+    // Collect all rainfall values across all frames
+    const allValues: number[] = []
+    data.frames.forEach((frame) => {
+      frame.z.forEach((row) => {
+        row.forEach((value) => {
+          if (value && value > 0) {
+            allValues.push(value)
+          }
+        })
+      })
+    })
+
+    if (allValues.length === 0) return { min: 0, max: 4.0, effectiveMax: 4.0 }
+
+    // Sort values for percentile calculation
+    allValues.sort((a, b) => a - b)
+
+    // Calculate 98th percentile as effective max (to handle outliers)
+    const p98Index = Math.floor(allValues.length * 0.98)
+    const effectiveMax = allValues[p98Index] || allValues[allValues.length - 1]
+    const min = allValues[0]
+    const max = allValues[allValues.length - 1]
+
+    console.log('📊 Rainfall statistics:', {
+      min: min.toFixed(3),
+      max: max.toFixed(3),
+      effectiveMax: effectiveMax.toFixed(3),
+      p98Index,
+      totalPoints: allValues.length,
+    })
+
+    return { min, max, effectiveMax, allValues }
+  }, [data])
+
+  // Calculate dynamic legend items based on data quantiles
+  const legendItems = useMemo(() => {
+    if (!data || !rainfallStats.allValues || rainfallStats.allValues.length === 0) return []
+
+    const { effectiveMax, allValues } = rainfallStats
+
+    // Generate 12 quantile-based buckets for equal data distribution
+    const numBuckets = 12
+    const legendBuckets: LegendItem[] = []
+
+    // Extract colors from our exact heatmap gradient (reversed order for legend display)
+    const gradientColors = [
+      '#7a0402', // 100% - very dark red
+      '#b11901', // 93% - dark red
+      '#d93806', // 86% - red-orange
+      '#f36315', // 79% - deep orange
+      '#fe9b2d', // 71% - orange
+      '#f3c63a', // 64% - gold
+      '#d1e834', // 57% - yellow
+      '#a4fc3b', // 50% - yellow-green
+      '#61fc6c', // 43% - green
+      '#24eca6', // 36% - green-cyan
+      '#1bcfd4', // 29% - cyan
+      '#39a2fc', // 21% - light blue
+    ]
+
+    for (let i = 0; i < numBuckets; i++) {
+      // Calculate quantile indices
+      const startIdx = Math.floor((i / numBuckets) * allValues.length)
+      const endIdx = Math.floor(((i + 1) / numBuckets) * allValues.length)
+
+      // Get quantile range values
+      const rangeMin = allValues[startIdx]
+      const rangeMax = i === numBuckets - 1 ? effectiveMax : allValues[endIdx - 1]
+
+      // Format labels with 3 decimal places for better precision
+      const label = `${rangeMin.toFixed(3)}-${rangeMax.toFixed(3)}`
+
+      // Determine description based on intensity
+      let description = 'Trace'
+      if (rangeMax >= 2.5) description = 'Extreme'
+      else if (rangeMax >= 1.8) description = 'Very Heavy'
+      else if (rangeMax >= 1.2) description = 'Heavy'
+      else if (rangeMax >= 0.6) description = 'Moderate'
+      else if (rangeMax >= 0.3) description = 'Light'
+      else if (rangeMax >= 0.1) description = 'Very Light'
+
+      legendBuckets.push({
+        color: gradientColors[i],
+        label,
+        description,
+      })
+    }
+
+    // Already in descending order (highest at top)
+    return legendBuckets
+  }, [data, rainfallStats])
 
   // Load Leaflet CSS
   useEffect(() => {
     import('leaflet/dist/leaflet.css')
   }, [])
+
+  // Track zoom level changes and update heatmap settings
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    const map = mapRef.current
+    const updateZoom = () => {
+      const newZoom = map.getZoom()
+      setCurrentZoom(newZoom)
+      // Update heatmap settings for new zoom level
+      updateHeatmapForZoom(newZoom)
+    }
+
+    map.on('zoomend', updateZoom)
+    updateZoom() // Initial zoom
+
+    return () => {
+      map.off('zoomend', updateZoom)
+    }
+  }, [isMapReady])
 
   // Initialize heatmap layer
   useEffect(() => {
@@ -77,12 +200,12 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     try {
       // Create heatmap layer with custom gradient
       const heatLayer = L.heatLayer([], {
-        radius: 25,
-        blur: 15,
+        radius: 35,        // Increased from 25 for smoother appearance
+        blur: 25,          // Increased from 15 for better blending
         maxZoom: 17,
         max: 1.0,
         minIntensity: 0,
-        maxIntensity: 4.0, // Maximum expected rainfall value (mm/hr)
+        maxIntensity: rainfallStats.effectiveMax, // Use 98th percentile as max
         gradient: {
           0.00: '#30123b', // very dark purple
           0.07: '#4145ab', // deep blue
@@ -121,7 +244,7 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
         }
       }
     }
-  }, [isMapReady])
+  }, [isMapReady, rainfallStats])
 
   // Fit map bounds to data coverage area when data loads
   useEffect(() => {
@@ -187,7 +310,7 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
     metadata: RainfallForecastMetadata
   ): Array<[number, number, number]> => {
     const points: Array<[number, number, number]> = []
-    const maxRainfall = 4.0 // mm/hr threshold for normalization (matches maxIntensity)
+    const maxRainfall = rainfallStats.effectiveMax // Use 98th percentile for normalization
 
     grid.lat.forEach((lat, latIndex) => {
       grid.lon.forEach((lon, lonIndex) => {
@@ -220,6 +343,85 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed)
+  }
+
+  // Calculate zoom-dependent heatmap settings based on user testing
+  const getHeatmapSettings = (zoom: number): { radius: number; blur: number } => {
+    // Based on user testing:
+    // Zoom 5: R:50 B:0
+    // Zoom 7: R:55 B:0
+    // Zoom 9: R:60 B:15
+    // Pattern: As zoom increases, radius increases, blur increases slowly
+
+    if (zoom <= 5) {
+      return { radius: 50, blur: 0 }
+    } else if (zoom <= 7) {
+      return { radius: 55, blur: 0 }
+    } else if (zoom <= 9) {
+      return { radius: 60, blur: 15 }
+    } else if (zoom <= 11) {
+      return { radius: 50, blur: 25 }
+    } else if (zoom <= 13) {
+      return { radius: 40, blur: 28 }
+    } else if (zoom <= 15) {
+      return { radius: 35, blur: 25 }
+    } else {
+      return { radius: 30, blur: 20 }
+    }
+  }
+
+  // Update heatmap settings when zoom changes
+  const updateHeatmapForZoom = (zoom: number) => {
+    if (!heatmapLayerRef.current || !mapRef.current || !data) return
+
+    try {
+      const settings = getHeatmapSettings(zoom)
+      const map = mapRef.current
+
+      // Remove old layer
+      heatmapLayerRef.current.remove()
+
+      // Create new layer with zoom-appropriate settings
+      const layer = L.heatLayer([], {
+        radius: settings.radius,
+        blur: settings.blur,
+        maxZoom: 17,
+        max: 1.0,
+        minIntensity: 0,
+        maxIntensity: rainfallStats.effectiveMax,
+        gradient: {
+          0.0: '#30123b',
+          0.07: '#4145ab',
+          0.14: '#4675ed',
+          0.21: '#39a2fc',
+          0.29: '#1bcfd4',
+          0.36: '#24eca6',
+          0.43: '#61fc6c',
+          0.5: '#a4fc3b',
+          0.57: '#d1e834',
+          0.64: '#f3c63a',
+          0.71: '#fe9b2d',
+          0.79: '#f36315',
+          0.86: '#d93806',
+          0.93: '#b11901',
+          1.0: '#7a0402',
+        },
+      } as any)
+
+      layer.addTo(map)
+      heatmapLayerRef.current = layer
+
+      // Re-render current frame
+      const currentFrame = data.frames[currentFrameIndex]
+      if (currentFrame) {
+        const points = convertFrameToHeatmapPoints(currentFrame, data.grid, data.metadata)
+        layer.setLatLngs(points)
+      }
+
+      console.log(`🔄 Heatmap updated for zoom ${zoom}: radius=${settings.radius}, blur=${settings.blur}`)
+    } catch (err) {
+      console.error('❌ Error updating heatmap for zoom:', err)
+    }
   }
 
   // Default center: Norfolk/Moyock area, Virginia
@@ -285,16 +487,24 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
         }}
         whenReady={() => setIsMapReady(true)}
       >
-        {/* Base Layer - Satellite */}
+        {/* Base Layer - Light/Positron (CartoDB) - Matches Plotly carto-positron style */}
         <TileLayer
-          url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-          attribution="© Google Maps"
-          maxZoom={21}
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          maxZoom={20}
+          subdomains="abcd"
         />
+        {/* Base Layer - Satellite */}
+      {/*  <TileLayer
+            url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+            attribution="© Google Maps"
+            maxZoom={21}
+            subdomains="https://dev.hazert.utilian.com/"
+        />*/}
       </MapContainer>
 
-      {/* Exit Button */}
-      <div className="absolute top-4 left-4 z-[1001]">
+      {/* Exit Button - Top Right */}
+      <div className="absolute top-4 right-4 z-[1001]">
         <button
           onClick={onDisable}
           className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-3 hover:bg-white transition-colors flex items-center gap-2"
@@ -305,8 +515,8 @@ export const RainfallForecastMap: React.FC<RainfallForecastMapProps> = ({
         </button>
       </div>
 
-      {/* Legend */}
-      <RainfallLegend />
+      {/* Legend - Below Exit Button */}
+      <RainfallLegend items={legendItems} />
 
       {/* Time Control */}
       <RainfallTimeControl
