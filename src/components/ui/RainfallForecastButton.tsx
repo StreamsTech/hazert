@@ -6,14 +6,14 @@ interface RainfallForecastButtonProps {
 
 /**
  * Rainfall Forecast Button
- * Position: Below the Compare button (top-[192px])
+ * Position: Bottom of the button list (top-[360px])
  * Phase 2.1: Opens rainfall forecast mode directly
  * Phase 2.2: Will open date range modal
  */
 export const RainfallForecastButton: React.FC<RainfallForecastButtonProps> = ({ onClick }) => {
   return (
     <div
-      className="rainfall-forecast-button-prevent-click absolute top-[192px] right-4 z-[1001]"
+      className="rainfall-forecast-button-prevent-click absolute top-[360px] right-4 z-[1001]"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >

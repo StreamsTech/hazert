@@ -44,7 +44,7 @@ export const NotificationControl: React.FC<NotificationControlProps> = ({ onNoti
   return (
     <div
       ref={containerRef}
-      className="notification-button-prevent-click absolute top-[360px] right-4 z-[1001]"
+      className="notification-button-prevent-click absolute top-[248px] right-4 z-[1001]"
     >
       <button
         onClick={handleNotifyClick}

@@ -7,7 +7,7 @@ interface ComparisonButtonProps {
 export const ComparisonButton: React.FC<ComparisonButtonProps> = ({ onClick }) => {
   return (
     <div
-      className="comparison-button-prevent-click absolute top-[136px] right-4 z-[1001]"
+      className="comparison-button-prevent-click absolute top-[304px] right-4 z-[1001]"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >

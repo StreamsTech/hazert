@@ -1399,10 +1399,10 @@ function MapComponent() {
             }}
           />
 
-          {/* Comparison Button - Below Layer Controller */}
+          {/* Comparison Button - Below Notification Control */}
           <ComparisonButton onClick={() => setShowComparisonModal(true)} />
 
-          {/* Rainfall Forecast Button - Below Comparison Button */}
+          {/* Rainfall Forecast Button - Bottom of button list */}
           <RainfallForecastButton onClick={handleRainfallForecastEnable} />
 
           {/* Pen Mode Marker */}
@@ -1445,7 +1445,7 @@ function MapComponent() {
         </MapContainer>
       )}
 
-      {/* Fullscreen Control - Toggle fullscreen mode (positioned below Comparison button) */}
+      {/* Fullscreen Control - Toggle fullscreen mode (positioned below Layer Controller) */}
       {!comparisonMode && !rainfallForecastMode && <FullscreenControl />}
 
       {/* Comparison Modal */}

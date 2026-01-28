@@ -27,7 +27,7 @@ export const FullscreenControl: React.FC = () => {
 
   return (
     <div
-      className="fullscreen-button-prevent-click absolute top-[248px] right-4 z-[1001]"
+      className="fullscreen-button-prevent-click absolute top-[136px] right-4 z-[1001]"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
